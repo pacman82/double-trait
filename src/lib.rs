@@ -1,6 +1,6 @@
 use quote::quote;
 use syn::{
-    Ident, ItemTrait, TraitItem, TraitItemFn,
+    Ident, ItemImpl, ItemTrait, TraitItem, TraitItemFn,
     parse::{Parse, ParseStream, Result},
     parse_macro_input, parse2,
 };
@@ -19,22 +19,19 @@ pub fn double(
 }
 
 fn double_impl(attr: Attr, item: ItemTrait) -> proc_macro2::TokenStream {
-    let items = item
-        .items
-        .into_iter()
-        .filter_map(transform_trait_item)
-        .collect();
-    let double_trait = ItemTrait {
-        ident: attr.name,
-        items,
-        ..item
-    };
+    let double_trait = double_trait(attr.clone(), item.clone());
+    let trait_impl = trait_impl(attr, item.clone());
 
     quote! {
+        #item
+
         #double_trait
+
+        #trait_impl
     }
 }
 
+#[derive(Clone)]
 struct Attr {
     name: Ident,
 }
@@ -44,6 +41,20 @@ impl Parse for Attr {
         Ok(Attr {
             name: input.parse()?,
         })
+    }
+}
+
+fn double_trait(attr: Attr, item: ItemTrait) -> ItemTrait {
+    let items = item
+        .items
+        .into_iter()
+        .filter_map(transform_trait_item)
+        .collect();
+    let double_name = attr.name;
+    ItemTrait {
+        ident: double_name.clone(),
+        items,
+        ..item
     }
 }
 
@@ -67,6 +78,21 @@ fn transform_function(mut fn_item: TraitItemFn) -> Option<TraitItemFn> {
     Some(fn_item)
 }
 
+fn trait_impl(attr: Attr, item: ItemTrait) -> ItemImpl {
+    let double_trait_name = attr.name;
+    let org_trait_name = item.ident;
+
+    let impl_ = quote! {
+        impl<T> #org_trait_name for T where T: #double_trait_name {
+
+        }
+    };
+
+    let impl_ = parse2(impl_).unwrap();
+
+    ItemImpl { ..impl_ }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -81,7 +107,11 @@ mod tests {
         let output = double_impl(attr, item);
 
         let expected = quote! {
+            trait MyTrait {}
+
             trait MyTraitDummy {}
+
+            impl<T> MyTrait for T where T: MyTraitDummy {}
         };
         assert_eq!(expected.to_string(), output.to_string());
     }
@@ -96,7 +126,11 @@ mod tests {
 
         // Then the generated trait should be public, too
         let expected = quote! {
+            pub trait MyTrait {}
+
             pub trait MyTraitDummy {}
+
+            impl<T> MyTrait for T where T: MyTraitDummy {}
         };
         assert_eq!(expected.to_string(), output.to_string());
     }
@@ -107,7 +141,7 @@ mod tests {
         let (attr, item) = given(
             quote! { MyTraitDummy },
             quote! {
-                pub trait MyTrait {
+                trait MyTrait {
                     fn foobar();
                 }
             },
@@ -118,8 +152,16 @@ mod tests {
 
         // Then the generated trait should contain that method, too
         let expected = quote! {
-            pub trait MyTraitDummy {
-                fn foobar () { unimplemented!() }
+            trait MyTrait {
+                fn foobar(&self);
+            }
+
+            trait MyTraitDummy {
+                fn foobar (&self) { unimplemented!() }
+            }
+
+            impl<T> MyTrait for T where T: MyTraitDummy {
+                fn foobar(&self) { MyTraitDummy::foobar(self) }
             }
         };
         assert_eq!(expected.to_string(), output.to_string());
@@ -142,7 +184,13 @@ mod tests {
 
         // Then the generated trait should not overide the existing default
         let expected = quote! {
+            pub trait MyTrait {
+                fn foobar() { println!("Hello Default!") }
+            }
+
             pub trait MyTraitDummy {}
+
+            impl<T> MyTrait for T where T: MyTraitDummy {}
         };
         assert_eq!(expected.to_string(), output.to_string());
     }

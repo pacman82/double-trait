@@ -5,15 +5,15 @@ use derive_double::double;
 
 #[test]
 fn implement_double_instead_of_original_trait() {
-    // Given an empty trait
+    // Given an original trait with a derived `DummyTrait` test double
     #[double(MyEmptyTraitDummy)]
     trait MyEmptyTrait {}
 
-    // When implementing the double for a struct
+    // When implementing `DummyTrait` for a struct `MyStruct`
     struct MyStruct;
     impl MyEmptyTraitDummy for MyStruct {}
 
-    // Then the struct implements the original trait
+    // Then `MyStruct` also implements `OrgTrait`.
     fn use_trait(_: impl MyEmptyTrait) {
         // This function is just a placeholder to ensure the trait is used
     }
@@ -22,13 +22,15 @@ fn implement_double_instead_of_original_trait() {
 
 #[test]
 fn invoke_implemented_method_through_original_trait() {
-    // Given an empty trait
+    // Given an original trait with a method `answer`
     #[double(DummyTrait)]
     trait OrgTrait {
         fn answer(&self) -> i32;
+
+        fn some_other_method(&self);
     }
 
-    // When implementing the double for a struct
+    // When ovverriding default implementation of `answer` in `DummyTrait`
     struct MyStruct;
     impl DummyTrait for MyStruct {
         fn answer(&self) -> i32 {
@@ -36,5 +38,6 @@ fn invoke_implemented_method_through_original_trait() {
         }
     }
 
+    // The new implementation is used than invoking `OrgTrait::answer` via `MyStruct`
     assert_eq!(42, OrgTrait::answer(&MyStruct));
 }

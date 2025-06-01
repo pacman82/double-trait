@@ -15,6 +15,8 @@ use self::{double_trait::double_trait, trait_impl::trait_impl};
 /// methods, implementing the mirrored method on an implementation of the generated trait `OrgDummy`
 /// is sufficient. The other methods would not be inovked in the test, so their default
 /// implementation using `unimplemented!()` would not be reached.
+/// 
+/// The argument passed to the attribute is used as the name of the generated trait.
 #[proc_macro_attribute]
 pub fn double(
     attr: proc_macro::TokenStream,

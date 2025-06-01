@@ -1,6 +1,6 @@
 # Double Derive
 
-Derive trait doubles in Rust.
+A procedural macro to derive a mirror of a trait designed to make it easier to implement test doubles.
 
 Might just work for you, but early in development.
 

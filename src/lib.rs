@@ -2,7 +2,7 @@ use quote::quote;
 use syn::{
     Ident, ItemTrait, TraitItem, TraitItemFn,
     parse::{Parse, ParseStream, Result},
-    parse_macro_input,
+    parse_macro_input, parse2,
 };
 
 #[proc_macro_attribute]
@@ -19,7 +19,11 @@ pub fn double(
 }
 
 fn double_impl(attr: Attr, item: ItemTrait) -> proc_macro2::TokenStream {
-    let items = item.items.into_iter().map(transform_trait_item).collect();
+    let items = item
+        .items
+        .into_iter()
+        .filter_map(transform_trait_item)
+        .collect();
     let double_trait = ItemTrait {
         ident: attr.name,
         items,
@@ -43,17 +47,24 @@ impl Parse for Attr {
     }
 }
 
-fn transform_trait_item(trait_item: TraitItem) -> TraitItem {
+fn transform_trait_item(trait_item: TraitItem) -> Option<TraitItem> {
     // We are only interessted in transforming functions
     if let TraitItem::Fn(fn_item) = trait_item {
-        TraitItem::Fn(transform_function(fn_item))
+        transform_function(fn_item).map(TraitItem::Fn)
     } else {
-        trait_item
+        Some(trait_item)
     }
 }
 
-fn transform_function(fn_item: TraitItemFn) -> TraitItemFn {
-    fn_item
+// Filter method which already have a default implementation
+fn transform_function(mut fn_item: TraitItemFn) -> Option<TraitItemFn> {
+    if fn_item.default.is_some() {
+        return None;
+    }
+
+    fn_item.default = Some(parse2(quote! {{ unimplemented!() }}).unwrap());
+
+    Some(fn_item)
 }
 
 #[cfg(test)]
@@ -108,8 +119,30 @@ mod tests {
         // Then the generated trait should contain that method, too
         let expected = quote! {
             pub trait MyTraitDummy {
-                fn foobar ();
+                fn foobar () { unimplemented!() }
             }
+        };
+        assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    #[test]
+    fn respect_existing_default_impl() {
+        // Given a method with a default implementation in the original trait
+        let (attr, item) = given(
+            quote! { MyTraitDummy },
+            quote! {
+                pub trait MyTrait {
+                    fn foobar() { println!("Hello Default!") }
+                }
+            },
+        );
+
+        // When generating the dummy
+        let output = double_impl(attr, item);
+
+        // Then the generated trait should not overide the existing default
+        let expected = quote! {
+            pub trait MyTraitDummy {}
         };
         assert_eq!(expected.to_string(), output.to_string());
     }

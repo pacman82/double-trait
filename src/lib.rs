@@ -1,6 +1,6 @@
 use quote::quote;
 use syn::{
-    Ident,
+    Ident, ItemTrait,
     parse::{Parse, ParseStream, Result},
     parse_macro_input,
 };
@@ -13,18 +13,18 @@ pub fn double(
     // Convert `proc_macro::TokenStreams` from and to input proc_marco2::TokenStream in order to
     // enable better testability of `double_impl`
     let attr = parse_macro_input!(attr as Attr);
-    // let attr = proc_macro2::TokenStream::from(attr);
-    let item = proc_macro2::TokenStream::from(item);
+    let item = parse_macro_input!(item as ItemTrait);
 
     let output = double_impl(attr, item);
 
     proc_macro::TokenStream::from(output)
 }
 
-fn double_impl(attr: Attr, item: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+fn double_impl(attr: Attr, item: ItemTrait) -> proc_macro2::TokenStream {
     let double_trait_name = attr.name;
+    let visibility = item.vis;
     quote! {
-        pub trait #double_trait_name {}
+        #visibility trait #double_trait_name {}
     }
 }
 
@@ -45,10 +45,10 @@ mod tests {
 
     use super::{Attr, double_impl};
     use quote::quote;
-    use syn::{Ident, parse2};
+    use syn::{ItemTrait, parse2};
 
     #[test]
-    fn make_double_can_annotate_trait() {
+    fn generate_double_trait() {
         let attr = quote! {
             MyTraitDummy
         };
@@ -56,8 +56,29 @@ mod tests {
         let item = quote! {
             trait MyTrait {}
         };
+        let item: ItemTrait = parse2(item).unwrap();
         let output = double_impl(attr, item);
 
+        let expected = quote! {
+            trait MyTraitDummy {}
+        };
+        assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    #[test]
+    fn forward_visibility() {
+        // Given a public trait
+        let attr = quote! {
+            MyTraitDummy
+        };
+        let attr: Attr = parse2(attr).unwrap();
+        let item = quote! {
+            pub trait MyTrait {}
+        };
+        let item: ItemTrait = parse2(item).unwrap();
+        let output = double_impl(attr, item);
+
+        // Then the generated trait should be public, too
         let expected = quote! {
             pub trait MyTraitDummy {}
         };

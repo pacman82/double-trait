@@ -1,13 +1,14 @@
 use quote::quote;
 use syn::{
-    Ident, ItemImpl, ItemTrait,
+    Ident, ItemTrait,
     parse::{Parse, ParseStream, Result},
-    parse_macro_input, parse2,
+    parse_macro_input,
 };
 
 mod double_trait;
+mod trait_impl;
 
-use self::double_trait::double_trait;
+use self::{double_trait::double_trait, trait_impl::trait_impl};
 
 /// Generates a trait which replicates the original trait method for method. It does implement the
 /// original trait for each of its implementations, by means of forwarding the method calls. The
@@ -64,21 +65,6 @@ impl Parse for Attr {
             name: input.parse()?,
         })
     }
-}
-
-fn trait_impl(attr: Attr, item: ItemTrait) -> ItemImpl {
-    let double_trait_name = attr.name;
-    let org_trait_name = item.ident;
-
-    let impl_ = quote! {
-        impl<T> #org_trait_name for T where T: #double_trait_name {
-
-        }
-    };
-
-    let impl_ = parse2(impl_).unwrap();
-
-    ItemImpl { ..impl_ }
 }
 
 #[cfg(test)]

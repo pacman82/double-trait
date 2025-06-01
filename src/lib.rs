@@ -1,6 +1,6 @@
 use quote::quote;
 use syn::{
-    Ident, ItemTrait,
+    Ident, ItemTrait, TraitItem, TraitItemFn,
     parse::{Parse, ParseStream, Result},
     parse_macro_input,
 };
@@ -19,8 +19,10 @@ pub fn double(
 }
 
 fn double_impl(attr: Attr, item: ItemTrait) -> proc_macro2::TokenStream {
+    let items = item.items.into_iter().map(transform_trait_item).collect();
     let double_trait = ItemTrait {
         ident: attr.name,
+        items,
         ..item
     };
 
@@ -39,6 +41,19 @@ impl Parse for Attr {
             name: input.parse()?,
         })
     }
+}
+
+fn transform_trait_item(trait_item: TraitItem) -> TraitItem {
+    // We are only interessted in transforming functions
+    if let TraitItem::Fn(fn_item) = trait_item {
+        TraitItem::Fn(transform_function(fn_item))
+    } else {
+        trait_item
+    }
+}
+
+fn transform_function(fn_item: TraitItemFn) -> TraitItemFn {
+    fn_item
 }
 
 #[cfg(test)]

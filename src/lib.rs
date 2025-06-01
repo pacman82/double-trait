@@ -10,8 +10,6 @@ pub fn double(
     attr: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    // Convert `proc_macro::TokenStreams` from and to input proc_marco2::TokenStream in order to
-    // enable better testability of `double_impl`
     let attr = parse_macro_input!(attr as Attr);
     let item = parse_macro_input!(item as ItemTrait);
 
@@ -49,14 +47,8 @@ mod tests {
 
     #[test]
     fn generate_double_trait() {
-        let attr = quote! {
-            MyTraitDummy
-        };
-        let attr: Attr = parse2(attr).unwrap();
-        let item = quote! {
-            trait MyTrait {}
-        };
-        let item: ItemTrait = parse2(item).unwrap();
+        let (attr, item) = given(quote! { MyTraitDummy }, quote! { trait MyTrait {} });
+
         let output = double_impl(attr, item);
 
         let expected = quote! {
@@ -68,14 +60,8 @@ mod tests {
     #[test]
     fn forward_visibility() {
         // Given a public trait
-        let attr = quote! {
-            MyTraitDummy
-        };
-        let attr: Attr = parse2(attr).unwrap();
-        let item = quote! {
-            pub trait MyTrait {}
-        };
-        let item: ItemTrait = parse2(item).unwrap();
+        let (attr, item) = given(quote! { MyTraitDummy }, quote! { pub trait MyTrait {} });
+
         let output = double_impl(attr, item);
 
         // Then the generated trait should be public, too
@@ -83,5 +69,11 @@ mod tests {
             pub trait MyTraitDummy {}
         };
         assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    fn given(attr: proc_macro2::TokenStream, item: proc_macro2::TokenStream) -> (Attr, ItemTrait) {
+        let attr: Attr = parse2(attr).unwrap();
+        let item: ItemTrait = parse2(item).unwrap();
+        (attr, item)
     }
 }

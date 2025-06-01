@@ -1,10 +1,23 @@
 use quote::quote;
 use syn::{
-    Ident, ItemImpl, ItemTrait, TraitItem, TraitItemFn,
+    Ident, ItemImpl, ItemTrait,
     parse::{Parse, ParseStream, Result},
     parse_macro_input, parse2,
 };
 
+mod double_trait;
+
+use self::double_trait::double_trait;
+
+/// Generates a trait which replicates the original trait method for method. It does implement the
+/// original trait for each of its implementations, by means of forwarding the method calls. The
+/// utility comes from the fact that the generated trait has default implementations for each method
+/// using `unimplemented!()`, which makes it useful for testing purposes.
+///
+/// If a test requires an implementation of an original trait `Org` yet would only invoke one of its
+/// methods, implementing the mirrored method on an implementation of the generated trait `OrgDummy`
+/// is sufficient. The other methods would not be inovked in the test, so their default
+/// implementation using `unimplemented!()` would not be reached.
 #[proc_macro_attribute]
 pub fn double(
     attr: proc_macro::TokenStream,
@@ -18,12 +31,21 @@ pub fn double(
     proc_macro::TokenStream::from(output)
 }
 
-fn double_impl(attr: Attr, item: ItemTrait) -> proc_macro2::TokenStream {
-    let double_trait = double_trait(attr.clone(), item.clone());
-    let trait_impl = trait_impl(attr, item.clone());
+/// The main implementation of [`crate::double`]. This function is not annotated with
+/// `#[proc_macro_attribute]` so it can exist in unit tests. It uses only APIs build on top of
+/// [`proc_macro2`] in order to be unit testable.
+fn double_impl(attr: Attr, org_trait: ItemTrait) -> proc_macro2::TokenStream {
+    let double_trait = double_trait(attr.clone(), org_trait.clone());
+    let trait_impl = trait_impl(attr, org_trait.clone());
 
+    // We generate three items as part of our output.
+    // 1. The orginal trait, which we put in the output unaltered.
+    // 2. The double trait, we genarate, which mirrors the original traits methods and provides
+    //    default implementations using `unimplemented!()`.
+    // 3. An implementation of the original trait for all types which implement the double trait.
+    //    This is done by forwarding the method calls to the double trait.
     quote! {
-        #item
+        #org_trait
 
         #double_trait
 
@@ -42,40 +64,6 @@ impl Parse for Attr {
             name: input.parse()?,
         })
     }
-}
-
-fn double_trait(attr: Attr, item: ItemTrait) -> ItemTrait {
-    let items = item
-        .items
-        .into_iter()
-        .filter_map(transform_trait_item)
-        .collect();
-    let double_name = attr.name;
-    ItemTrait {
-        ident: double_name.clone(),
-        items,
-        ..item
-    }
-}
-
-fn transform_trait_item(trait_item: TraitItem) -> Option<TraitItem> {
-    // We are only interessted in transforming functions
-    if let TraitItem::Fn(fn_item) = trait_item {
-        transform_function(fn_item).map(TraitItem::Fn)
-    } else {
-        Some(trait_item)
-    }
-}
-
-// Filter method which already have a default implementation
-fn transform_function(mut fn_item: TraitItemFn) -> Option<TraitItemFn> {
-    if fn_item.default.is_some() {
-        return None;
-    }
-
-    fn_item.default = Some(parse2(quote! {{ unimplemented!() }}).unwrap());
-
-    Some(fn_item)
 }
 
 fn trait_impl(attr: Attr, item: ItemTrait) -> ItemImpl {
@@ -142,7 +130,7 @@ mod tests {
             quote! { MyTraitDummy },
             quote! {
                 trait MyTrait {
-                    fn foobar();
+                    fn foobar(&self);
                 }
             },
         );

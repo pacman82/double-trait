@@ -118,7 +118,7 @@ mod tests {
             }
 
             impl<T> MyTrait for T where T: MyTraitDummy {
-                fn foobar(&self) { MyTraitDummy::foobar(self) }
+                fn foobar(&self) { MyTraitDummy::foobar(self,) }
             }
         };
         assert_eq!(expected.to_string(), output.to_string());

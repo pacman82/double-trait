@@ -1,5 +1,5 @@
 use quote::quote;
-use syn::{parse2, Ident, ItemTrait, TraitItem, TraitItemFn};
+use syn::{Ident, ItemTrait, TraitItem, TraitItemFn, parse2};
 
 /// Generate a double trait which mirrors the original trait's methods and provides default
 /// implementations using `unimplemented!()`.

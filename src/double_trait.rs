@@ -1,19 +1,16 @@
 use quote::quote;
-use syn::{ItemTrait, TraitItem, TraitItemFn, parse2};
-
-use crate::Attr;
+use syn::{parse2, Ident, ItemTrait, TraitItem, TraitItemFn};
 
 /// Generate a double trait which mirrors the original trait's methods and provides default
 /// implementations using `unimplemented!()`.
-pub fn double_trait(attr: Attr, org_trait: ItemTrait) -> ItemTrait {
+pub fn double_trait(double_trait_name: Ident, org_trait: ItemTrait) -> ItemTrait {
     let items = org_trait
         .items
         .into_iter()
         .filter_map(transform_trait_item)
         .collect();
-    let double_name = attr.name;
     ItemTrait {
-        ident: double_name.clone(),
+        ident: double_trait_name.clone(),
         items,
         ..org_trait
     }

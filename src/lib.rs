@@ -1,9 +1,5 @@
 use quote::quote;
-use syn::{
-    Ident, ItemTrait,
-    parse::{Parse, ParseStream, Result},
-    parse_macro_input,
-};
+use syn::{Ident, ItemTrait, parse_macro_input};
 
 mod double_trait;
 mod trait_impl;
@@ -24,10 +20,10 @@ pub fn double(
     attr: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    let attr = parse_macro_input!(attr as Attr);
+    let double_name = parse_macro_input!(attr as Ident);
     let item = parse_macro_input!(item as ItemTrait);
 
-    let output = double_impl(attr, item);
+    let output = double_impl(double_name, item);
 
     proc_macro::TokenStream::from(output)
 }
@@ -35,9 +31,9 @@ pub fn double(
 /// The main implementation of [`crate::double`]. This function is not annotated with
 /// `#[proc_macro_attribute]` so it can exist in unit tests. It uses only APIs build on top of
 /// [`proc_macro2`] in order to be unit testable.
-fn double_impl(attr: Attr, org_trait: ItemTrait) -> proc_macro2::TokenStream {
-    let double_trait = double_trait(attr.clone(), org_trait.clone());
-    let trait_impl = trait_impl(attr, org_trait.clone());
+fn double_impl(double_trait_name: Ident, org_trait: ItemTrait) -> proc_macro2::TokenStream {
+    let double_trait = double_trait(double_trait_name.clone(), org_trait.clone());
+    let trait_impl = trait_impl(double_trait_name, org_trait.clone());
 
     // We generate three items as part of our output.
     // 1. The orginal trait, which we put in the output unaltered.
@@ -54,23 +50,10 @@ fn double_impl(attr: Attr, org_trait: ItemTrait) -> proc_macro2::TokenStream {
     }
 }
 
-#[derive(Clone)]
-struct Attr {
-    name: Ident,
-}
-
-impl Parse for Attr {
-    fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Attr {
-            name: input.parse()?,
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
-    use super::{Attr, double_impl};
+    use super::{Ident, double_impl};
     use quote::quote;
     use syn::{ItemTrait, parse2};
 
@@ -164,13 +147,15 @@ mod tests {
 
             pub trait MyTraitDummy {}
 
-            impl<T> MyTrait for T where T: MyTraitDummy {}
+            impl<T> MyTrait for T where T: MyTraitDummy {
+                fn foobar() { MyTraitDummy::foobar() }
+            }
         };
         assert_eq!(expected.to_string(), output.to_string());
     }
 
-    fn given(attr: proc_macro2::TokenStream, item: proc_macro2::TokenStream) -> (Attr, ItemTrait) {
-        let attr: Attr = parse2(attr).unwrap();
+    fn given(attr: proc_macro2::TokenStream, item: proc_macro2::TokenStream) -> (Ident, ItemTrait) {
+        let attr: Ident = parse2(attr).unwrap();
         let item: ItemTrait = parse2(item).unwrap();
         (attr, item)
     }

@@ -19,10 +19,13 @@ pub fn double(
 }
 
 fn double_impl(attr: Attr, item: ItemTrait) -> proc_macro2::TokenStream {
-    let double_trait_name = attr.name;
-    let visibility = item.vis;
+    let double_trait = ItemTrait {
+        ident: attr.name,
+        ..item
+    };
+
     quote! {
-        #visibility trait #double_trait_name {}
+        #double_trait
     }
 }
 
@@ -62,11 +65,36 @@ mod tests {
         // Given a public trait
         let (attr, item) = given(quote! { MyTraitDummy }, quote! { pub trait MyTrait {} });
 
+        // When generating the dummy
         let output = double_impl(attr, item);
 
         // Then the generated trait should be public, too
         let expected = quote! {
             pub trait MyTraitDummy {}
+        };
+        assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    #[test]
+    fn forward_method() {
+        // Given a trait with a method
+        let (attr, item) = given(
+            quote! { MyTraitDummy },
+            quote! {
+                pub trait MyTrait {
+                    fn foobar();
+                }
+            },
+        );
+
+        // When generating the dummy
+        let output = double_impl(attr, item);
+
+        // Then the generated trait should contain that method, too
+        let expected = quote! {
+            pub trait MyTraitDummy {
+                fn foobar ();
+            }
         };
         assert_eq!(expected.to_string(), output.to_string());
     }

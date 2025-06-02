@@ -41,3 +41,25 @@ fn invoke_implemented_method_through_original_trait() {
     // The new implementation is used than invoking `OrgTrait::answer` via `MyStruct`
     assert_eq!(42, OrgTrait::answer(&MyStruct));
 }
+
+#[tokio::test]
+async fn async_method_invocation() {
+    // Given an original trait with a method `answer`
+    #[double(DummyTrait)]
+    trait OrgTrait {
+        async fn answer(&self) -> i32;
+
+        async fn foobar(&self);
+    }
+
+    // When ovverriding default implementation of `answer` in `DummyTrait`
+    struct MyStruct;
+    impl DummyTrait for MyStruct {
+        async fn answer(&self) -> i32 {
+            42
+        }
+    }
+
+    // The new implementation is used than invoking `OrgTrait::answer` via `MyStruct`
+    assert_eq!(42, OrgTrait::answer(&MyStruct).await);
+}

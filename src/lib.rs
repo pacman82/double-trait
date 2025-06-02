@@ -15,7 +15,7 @@ use self::{double_trait::double_trait, trait_impl::trait_impl};
 /// methods, implementing the mirrored method on an implementation of the generated trait `OrgDummy`
 /// is sufficient. The other methods would not be inovked in the test, so their default
 /// implementation using `unimplemented!()` would not be reached.
-/// 
+///
 /// The argument passed to the attribute is used as the name of the generated trait.
 #[proc_macro_attribute]
 pub fn double(
@@ -151,6 +151,38 @@ mod tests {
 
             impl<T> MyTrait for T where T: MyTraitDummy {
                 fn foobar() { MyTraitDummy::foobar() }
+            }
+        };
+        assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    #[test]
+    fn forward_async_method() {
+        // Given a trait with a method
+        let (attr, item) = given(
+            quote! { MyTraitDummy },
+            quote! {
+                trait MyTrait {
+                    async fn foobar(&self);
+                }
+            },
+        );
+
+        // When generating the dummy
+        let output = double_impl(attr, item);
+
+        // Then the generated trait should contain that method, too
+        let expected = quote! {
+            trait MyTrait {
+                async fn foobar(&self);
+            }
+
+            trait MyTraitDummy {
+                async fn foobar (&self) { unimplemented!() }
+            }
+
+            impl<T> MyTrait for T where T: MyTraitDummy {
+                async fn foobar(&self) { MyTraitDummy::foobar(self,).await }
             }
         };
         assert_eq!(expected.to_string(), output.to_string());

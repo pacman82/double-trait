@@ -37,6 +37,11 @@ fn map_methods(trait_item: TraitItem, double_trait_name: &Ident) -> Option<ImplI
 // Filter method which already have a default implementation
 fn function_with_forwarding(fn_item: TraitItemFn, double_trait_name: &Ident) -> ImplItemFn {
     let fn_name = fn_item.sig.ident.clone();
+    let async_invocation = if fn_item.sig.asyncness.is_some() {
+        quote! { .await }
+    } else {
+        quote! {}
+    };
     let inputs = fn_item
         .sig
         .inputs
@@ -48,7 +53,8 @@ fn function_with_forwarding(fn_item: TraitItemFn, double_trait_name: &Ident) -> 
         vis: Visibility::Inherited,
         defaultness: None,
         sig: fn_item.sig,
-        block: parse2(quote! {{ #double_trait_name::#fn_name(#(#inputs,)*) }}).unwrap(),
+        block: parse2(quote! {{ #double_trait_name::#fn_name(#(#inputs,)*)#async_invocation }})
+            .unwrap(),
     }
 }
 
@@ -138,6 +144,31 @@ mod tests {
         let expected = quote! {
             impl<T> MyTrait for T where T: MyTraitDummy {
                 fn foobar(one: i32, two: i32) { MyTraitDummy::foobar(one, two,) }
+            }
+        };
+        assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    #[test]
+    fn forward_async() {
+        // Given a method with a default implementation in the original trait
+        let (attr, item) = given(
+            quote! { MyTraitDummy },
+            quote! {
+                pub trait MyTrait {
+                    async fn foobar(&mut self);
+                }
+            },
+        );
+
+        // When generating the dummy
+        let output = trait_impl(attr, item);
+
+        // Then the generated trait should not overide the existing default
+        let output = quote! { #output };
+        let expected = quote! {
+            impl<T> MyTrait for T where T: MyTraitDummy {
+                async fn foobar(&mut self) { MyTraitDummy::foobar(self,).await }
             }
         };
         assert_eq!(expected.to_string(), output.to_string());

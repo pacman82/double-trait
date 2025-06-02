@@ -53,8 +53,10 @@ fn function_with_forwarding(fn_item: TraitItemFn, double_trait_name: &Ident) -> 
         vis: Visibility::Inherited,
         defaultness: None,
         sig: fn_item.sig,
-        block: parse2(quote! {{ #double_trait_name::#fn_name(#(#inputs,)*)#async_invocation }})
-            .unwrap(),
+        block: parse2(
+            quote! {{ <Self as #double_trait_name>::#fn_name(#(#inputs,)*)#async_invocation }},
+        )
+        .unwrap(),
     }
 }
 
@@ -93,7 +95,9 @@ mod tests {
         let output = quote! { #output };
         let expected = quote! {
             impl<T> MyTrait for T where T: MyTraitDummy {
-                fn foobar(&mut self) { MyTraitDummy::foobar(self,) }
+                fn foobar(&mut self) {
+                    <Self as MyTraitDummy>::foobar(self,)
+                }
             }
         };
         assert_eq!(expected.to_string(), output.to_string());
@@ -118,7 +122,7 @@ mod tests {
         let output = quote! { #output };
         let expected = quote! {
             impl<T> MyTrait for T where T: MyTraitDummy {
-                fn foobar(x: i32) { MyTraitDummy::foobar(x,) }
+                fn foobar(x: i32) { <Self as MyTraitDummy>::foobar(x,) }
             }
         };
         assert_eq!(expected.to_string(), output.to_string());
@@ -143,7 +147,9 @@ mod tests {
         let output = quote! { #output };
         let expected = quote! {
             impl<T> MyTrait for T where T: MyTraitDummy {
-                fn foobar(one: i32, two: i32) { MyTraitDummy::foobar(one, two,) }
+                fn foobar(one: i32, two: i32) {
+                    <Self as MyTraitDummy>::foobar(one, two,)
+                }
             }
         };
         assert_eq!(expected.to_string(), output.to_string());
@@ -168,7 +174,7 @@ mod tests {
         let output = quote! { #output };
         let expected = quote! {
             impl<T> MyTrait for T where T: MyTraitDummy {
-                async fn foobar(&mut self) { MyTraitDummy::foobar(self,).await }
+                async fn foobar(&mut self) { <Self as MyTraitDummy>::foobar(self,).await }
             }
         };
         assert_eq!(expected.to_string(), output.to_string());

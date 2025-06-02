@@ -120,7 +120,7 @@ mod tests {
             }
 
             impl<T> MyTrait for T where T: MyTraitDummy {
-                fn foobar(&self) { MyTraitDummy::foobar(self,) }
+                fn foobar(&self) { <Self as MyTraitDummy>::foobar(self,) }
             }
         };
         assert_eq!(expected.to_string(), output.to_string());
@@ -150,7 +150,7 @@ mod tests {
             pub trait MyTraitDummy {}
 
             impl<T> MyTrait for T where T: MyTraitDummy {
-                fn foobar() { MyTraitDummy::foobar() }
+                fn foobar() { <Self as MyTraitDummy>::foobar() }
             }
         };
         assert_eq!(expected.to_string(), output.to_string());
@@ -182,7 +182,7 @@ mod tests {
             }
 
             impl<T> MyTrait for T where T: MyTraitDummy {
-                async fn foobar(&self) { MyTraitDummy::foobar(self,).await }
+                async fn foobar(&self) { <Self as MyTraitDummy>::foobar(self,).await }
             }
         };
         assert_eq!(expected.to_string(), output.to_string());

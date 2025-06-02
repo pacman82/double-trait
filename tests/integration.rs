@@ -30,7 +30,7 @@ fn invoke_implemented_method_through_original_trait() {
         fn some_other_method(&self);
     }
 
-    // When ovverriding default implementation of `answer` in `DummyTrait`
+    // When overriding default implementation of `answer` in `DummyTrait`
     struct MyStruct;
     impl DummyTrait for MyStruct {
         fn answer(&self) -> i32 {
@@ -82,4 +82,25 @@ async fn associated_method_invocation() {
 
     // The new implementation is used than invoking `OrgTrait::answer` via `MyStruct`
     assert_eq!(42, <MyStruct as OrgTrait>::answer().await);
+}
+
+#[tokio::test]
+async fn impl_future_method_invocation() {
+    use std::future::Future;
+    // Given an original trait with a method `answer`
+    #[double(DummyTrait)]
+    trait OrgTrait {
+        fn answer(&self) -> impl Future<Output = i32>;
+    }
+
+    // When ovverriding default implementation of `answer` in `DummyTrait`
+    struct MyStruct;
+    impl DummyTrait for MyStruct {
+        fn answer(&self) -> impl Future<Output = i32> {
+            async { 42 }
+        }
+    }
+
+    // The new implementation is used than invoking `OrgTrait::answer` via `MyStruct`
+    assert_eq!(42, OrgTrait::answer(&MyStruct).await);
 }

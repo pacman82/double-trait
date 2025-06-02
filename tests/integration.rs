@@ -1,7 +1,7 @@
 // We are more interested that the code compiles and  not so much in the actual functionality.
 #![allow(dead_code)]
 
-use derive_double::double;
+use double_derive::double;
 
 #[test]
 fn implement_double_instead_of_original_trait() {

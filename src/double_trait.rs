@@ -1,5 +1,8 @@
 use quote::quote;
-use syn::{Ident, ItemTrait, ReturnType, TraitItem, TraitItemFn, Type, parse2, spanned::Spanned};
+use syn::{
+    FnArg, Ident, ItemTrait, Pat, PatWild, ReturnType, Token, TraitItem, TraitItemFn, Type, parse2,
+    punctuated::Punctuated, spanned::Spanned, token::Comma,
+};
 
 /// Generate a double trait which mirrors the original trait's methods and provides default
 /// implementations using `unimplemented!()`.
@@ -33,6 +36,10 @@ fn transform_function(mut fn_item: TraitItemFn) -> syn::Result<Option<TraitItemF
         return Ok(None);
     }
 
+    // We are stripping parameter names in order to avoid warnings regarding unused variables, since
+    // our default implementation is not making use of any arguments.
+    strip_parameter_names(&mut fn_item.sig.inputs);
+
     let is_impl_future = is_maybe_impl_future(&fn_item.sig.output);
 
     let default_impl =
@@ -55,6 +62,18 @@ fn transform_function(mut fn_item: TraitItemFn) -> syn::Result<Option<TraitItemF
     fn_item.default = Some(default_impl);
 
     Ok(Some(fn_item))
+}
+
+fn strip_parameter_names(input: &mut Punctuated<FnArg, Comma>) {
+    for arg in input {
+        // We are only interested in pattern type. No need to transform `self`
+        if let FnArg::Typed(pat_type) = arg {
+            *pat_type.pat = Pat::Wild(PatWild {
+                attrs: Vec::new(),
+                underscore_token: Token![_](pat_type.span()),
+            })
+        }
+    }
 }
 
 fn is_maybe_impl_future(output: &ReturnType) -> bool {
@@ -98,6 +117,34 @@ mod tests {
             trait DoubleTrait {
                 fn method(&self) -> impl Future<Output = ()> {
                     async { unimplemented!() }
+                }
+            }
+        };
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn strip_parameter_names_from_default_implementation() {
+        // Given an original trait with a method returning an impl Future
+        let (double_trait_name, org_trait) = given(
+            quote! { DoubleTrait },
+            quote! {
+                trait OriginalTrait {
+                    fn method(x: i32);
+                }
+            },
+        );
+
+        // When generating the double trait
+        let double_trait = double_trait(double_trait_name, org_trait).unwrap();
+
+        // Then the double trait should have a default implementation for the method which uses
+        // an async block
+        let actual = quote! { #double_trait };
+        let expected = quote! {
+            trait DoubleTrait {
+                fn method(_: i32) {
+                    unimplemented!()
                 }
             }
         };

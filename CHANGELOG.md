@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/pacman82/double-derive/compare/v0.1.3...v0.1.4) - 2025-06-03
+
+### Fixed
+
+- Capitalize README.md in order for it to be picked up by cargo in the metainformation
+
 ## [0.1.3](https://github.com/pacman82/double-derive/compare/v0.1.2...v0.1.3) - 2025-06-03
 
 ### Added

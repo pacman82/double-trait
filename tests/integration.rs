@@ -104,3 +104,12 @@ async fn impl_future_method_invocation() {
     // The new implementation is used than invoking `OrgTrait::answer` via `MyStruct`
     assert_eq!(42, OrgTrait::answer(&MyStruct).await);
 }
+
+// fn compile_time_error_for_default_implementation_for_impl() {
+//     use std::future::Future;
+//     // Given an original trait with an impl return type
+//     #[double(DummyTrait)]
+//     trait OrgTrait {
+//         fn answer(&self) -> impl std::fmt::Display;
+//     }
+// }

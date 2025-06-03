@@ -31,16 +31,7 @@ fn transform_function(mut fn_item: TraitItemFn) -> Option<TraitItemFn> {
         return None;
     }
 
-    let is_impl_future = if let ReturnType::Type(_rarrow, ty) = &fn_item.sig.output {
-        if let Type::ImplTrait(ref _impl_trait) = **ty {
-            // Technically, not every impl is a "impl Future", but for now we assume that.        
-            true
-        } else {
-            false
-        }
-    } else {
-        false
-    };
+    let is_impl_future = is_impl_future(&fn_item.sig.output);
 
     let default_impl = if is_impl_future {
         // If the method returns an impl Future, we provide a default implementation using an async
@@ -55,6 +46,19 @@ fn transform_function(mut fn_item: TraitItemFn) -> Option<TraitItemFn> {
     fn_item.default = Some(default_impl);
 
     Some(fn_item)
+}
+
+fn is_impl_future(output: &ReturnType) -> bool {
+    if let ReturnType::Type(_rarrow, ty) = output {
+        if let Type::ImplTrait(ref _impl_trait) = **ty {
+            // Technically, not every impl is a "impl Future", but for now we assume that.
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    }
 }
 
 #[cfg(test)]

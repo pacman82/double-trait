@@ -1,8 +1,6 @@
-# Double Derive
+# Double Trait
 
 A procedural macro to derive a mirror of a trait designed to make it easier to implement test doubles.
-
-Might just work for you, but early in development.
 
 ## Usage
 

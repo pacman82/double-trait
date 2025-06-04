@@ -3,7 +3,7 @@ name = "double-derive"
 version = "0.1.4"
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/pacman82/double-derive"
+repository = "https://github.com/pacman82/double-trait"
 authors = ["Markus Klein"]
 description = "Implementations of macros for crate double-trait"
 

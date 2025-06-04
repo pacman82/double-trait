@@ -45,6 +45,13 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "double-trait"
+version = "0.1.0"
+dependencies = [
+ "double-derive",
  "tokio",
 ]
 

@@ -1,6 +1,7 @@
 // We are more interested that the code compiles and  not so much in the actual functionality.
 #![allow(dead_code)]
 
+use async_trait::async_trait;
 use double_trait::{Dummy, double};
 
 #[test]
@@ -114,4 +115,26 @@ fn dummy_implements_double_trait() {
     // Then `Dummy` implements `OrgTrait`
     fn use_trait(_: impl OrgTrait) {}
     use_trait(Dummy);
+}
+
+#[tokio::test]
+async fn combine_with_async_trait() {
+    // Given an original trait with a method `answer`
+    #[async_trait]    
+    #[double(DummyTrait)]
+    trait OrgTrait {
+        async fn answer(&self) -> i32;
+    }
+
+    // When overriding default implementation of `answer` in `DummyTrait`
+    struct MyStruct;
+    #[async_trait]
+    impl DummyTrait for MyStruct {
+        async fn answer(&self) -> i32 {
+            42
+        }
+    }
+
+    // The new implementation is used than invoking `OrgTrait::answer` via `MyStruct`
+    assert_eq!(42, OrgTrait::answer(&MyStruct).await);
 }

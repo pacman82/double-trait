@@ -24,7 +24,7 @@ keywords = ["testing", "double"]
 categories = ["rust-patterns"]
 
 [dependencies]
-double-derive = { path = "../double-derive" }
+double-derive = { version = "0.1.4", path = "../double-derive" }
 
 [dev-dependencies]
 tokio = { version = "1.45.1", features = ["rt", "macros"] }

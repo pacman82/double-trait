@@ -1,0 +1,18 @@
+[workspace]
+[[package]]
+name = "double-trait"
+# Customize the git tag name to remove the `double-trait` prefix.
+git_tag_name = "v{{ version }}"
+# Derive does not have its own dedicated changlog. Changes to it should appear in double-derive
+# changelog instead.
+changelog_include = ["double-derive"]
+# Set the path of the changelog to the root of the repository. This fits the project better, since
+# it also contains changes to the derive crate.
+changelog_path = "./CHANGELOG.md"
+
+[[package]]
+name = "double-derive"
+# We want the changes to the derive crate to appear in the common changelog in root
+changelog_update = false
+# We use the same tags as the main package
+git_tag_enable = false

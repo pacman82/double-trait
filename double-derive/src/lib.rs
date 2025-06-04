@@ -17,6 +17,12 @@ use self::{double_trait::double_trait, trait_impl::trait_impl};
 /// implementation using `unimplemented!()` would not be reached.
 ///
 /// The argument passed to the attribute is used as the name of the generated trait.
+///
+/// * Existing default implementations are respected and not overridden.
+/// * Visibility of the generated trait is the same as the original trait.
+/// * `async` methods are supported
+/// * Methods returning `impl` Traits are not supported, with the exception of `impl Future`.
+/// * Generated double trait is implemented for `Dummy`.
 #[proc_macro_attribute]
 pub fn double(
     attr: proc_macro::TokenStream,

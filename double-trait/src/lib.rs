@@ -14,4 +14,5 @@ pub use double_derive::double;
 ///
 /// OrgTrait::answer(&Dummy); // Compiles, but raises panic with `unimplemented!()`
 /// ```
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct Dummy;

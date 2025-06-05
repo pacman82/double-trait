@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/pacman82/double-trait/compare/v0.2.0...v0.2.1) - 2025-06-05
+
+### Added
+
+- Derive std traits for Dummy
+
+### Other
+
+- test with async_trait
+- fix dependencies to compile docstring
+- More examples in doc string
+
 ## [0.2.0](https://github.com/pacman82/double-derive/compare/v0.1.3...v0.2.0) - 2025-06-04
 
 ### Breaking

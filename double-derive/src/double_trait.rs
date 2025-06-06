@@ -21,11 +21,12 @@ pub fn double_trait(double_trait_name: Ident, org_trait: ItemTrait) -> syn::Resu
 
 fn transform_trait_item(trait_item: TraitItem) -> syn::Result<TraitItem> {
     // We are only interessted in transforming functions
-    let transformed_trait_item = if let TraitItem::Fn(fn_item) = trait_item {
-        TraitItem::Fn(transform_function(fn_item)?)
-    } else {
-        // If it is not a function, we forward the original Item
-        trait_item
+    let transformed_trait_item = match trait_item {
+        TraitItem::Fn(fn_item) => TraitItem::Fn(transform_function(fn_item)?),
+        _ => {
+            // If it is not a function, we forward the original Item
+            trait_item
+        }
     };
     Ok(transformed_trait_item)
 }

@@ -2,8 +2,8 @@ use quote::quote;
 use syn::{Error, Ident, ItemTrait, parse_macro_input};
 
 mod double_trait;
-mod trait_impl;
 mod dummy_impl;
+mod trait_impl;
 
 use self::{double_trait::double_trait, trait_impl::trait_impl};
 
@@ -24,36 +24,36 @@ use self::{double_trait::double_trait, trait_impl::trait_impl};
 /// * `async` methods are supported
 /// * Methods returning `impl` Traits are not supported, with the exception of `impl Future`.
 /// * Generated double trait is implemented for `Dummy`.
-/// 
+///
 /// # Example
-/// 
+///
 /// Basic usage allows creating test stubs for traits, without worrying about implementing methods
 /// not called in test code
-/// 
+///
 /// ```no_run
 /// use double_trait::double;
-/// 
+///
 /// #[double(MyTraitDouble)]
 /// trait MyTrait {
 ///    fn answer(&self) -> i32;
-/// 
+///
 ///    fn some_other_method(&self);
 /// }
 ///  
 /// struct MyStub;
-/// 
+///
 /// impl MyTraitDouble for MyStub {
 ///     fn answer(&self) -> i32 {
 ///         42
 ///     }
 /// }
-/// 
+///
 /// assert_eq!(42, MyTrait::answer(&MyStub));
 /// ```
-/// 
+///
 /// Then interacting with the `async_trait` crate, make sure to put the `#[async_trait]` attribute
 /// on top.
-/// 
+///
 /// ```no_run
 /// use double_trait::double;
 /// use async_trait::async_trait;

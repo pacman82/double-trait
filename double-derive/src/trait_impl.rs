@@ -1,15 +1,14 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    FnArg, Ident, ImplItem, ImplItemFn, ItemImpl, ItemTrait, PatType, TraitItem, TraitItemFn,
-    Visibility, parse2,
+    parse2, spanned::Spanned, FnArg, Ident, ImplItem, ImplItemFn, ImplItemType, ItemImpl, ItemTrait, PatType, Token, TraitItem, TraitItemFn, TraitItemType, Visibility
 };
 
 pub fn trait_impl(double_trait_name: Ident, org_trait: ItemTrait) -> ItemImpl {
     let items = org_trait
         .items
         .into_iter()
-        .filter_map(|trait_item| map_methods(trait_item, &double_trait_name))
+        .filter_map(|trait_item| forward_items(trait_item, &double_trait_name))
         .collect();
 
     let org_trait_name = org_trait.ident;
@@ -24,18 +23,42 @@ pub fn trait_impl(double_trait_name: Ident, org_trait: ItemTrait) -> ItemImpl {
     ItemImpl { items, ..impl_ }
 }
 
-fn map_methods(trait_item: TraitItem, double_trait_name: &Ident) -> Option<ImplItem> {
+fn forward_items(trait_item: TraitItem, double_trait_name: &Ident) -> Option<ImplItem> {
     // We are only interessted in transforming functions
-    if let TraitItem::Fn(fn_item) = trait_item {
-        let trait_item_fn = function_with_forwarding(fn_item, double_trait_name);
-        Some(ImplItem::Fn(trait_item_fn))
-    } else {
-        None
+    match trait_item {
+        TraitItem::Fn(fn_item) => {
+            let trait_item_fn = forward_methods(fn_item, double_trait_name);
+            Some(ImplItem::Fn(trait_item_fn))
+        }
+        TraitItem::Type(ty_item) => {
+            let impl_item_type = forward_type(ty_item, double_trait_name);
+            Some(ImplItem::Type(impl_item_type))
+        }
+        _ => None,
     }
 }
 
-// Filter method which already have a default implementation
-fn function_with_forwarding(fn_item: TraitItemFn, double_trait_name: &Ident) -> ImplItemFn {
+// Forward associated types from Double for original trait
+fn forward_type(ty_item: TraitItemType, double_trait_name: &Ident) -> ImplItemType {
+    let span = ty_item.span();
+    let ident = ty_item.ident.clone();
+    let ty = syn::parse_quote! { <Self as #double_trait_name>::#ident };
+    let impl_item = ImplItemType {
+        attrs: ty_item.attrs,
+        vis: Visibility::Inherited,
+        defaultness: None,
+        type_token: ty_item.type_token,
+        ident,
+        generics: ty_item.generics,
+        eq_token: Token![=](span),
+        ty,
+        semi_token: Token![;](span),
+    };
+    impl_item
+}
+
+// Forward implementation from Double for original trait
+fn forward_methods(fn_item: TraitItemFn, double_trait_name: &Ident) -> ImplItemFn {
     let fn_name = fn_item.sig.ident.clone();
     let async_invocation = if fn_item.sig.asyncness.is_some() {
         quote! { .await }
@@ -175,6 +198,31 @@ mod tests {
         let expected = quote! {
             impl<T> MyTrait for T where T: MyTraitDummy {
                 async fn foobar(&mut self) { <Self as MyTraitDummy>::foobar(self,).await }
+            }
+        };
+        assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    #[test]
+    fn forward_type() {
+        // Given a method with an associated type in the original trait
+        let (attr, item) = given(
+            quote! { MyTraitDummy },
+            quote! {
+                trait MyTrait {
+                    type AssociatedType;
+                }
+            },
+        );
+
+        // When generating the dummy
+        let output = trait_impl(attr, item);
+
+        // Then the generated trait impl should forward the associated type
+        let output = quote! { #output };
+        let expected = quote! {
+            impl<T> MyTrait for T where T: MyTraitDummy {
+                type AssociatedType = <Self as MyTraitDummy>::AssociatedType;
             }
         };
         assert_eq!(expected.to_string(), output.to_string());

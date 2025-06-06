@@ -142,7 +142,7 @@ async fn combine_with_async_trait() {
 #[test]
 fn trait_with_existing_default_method_impl() {
     // Compliation test. Test assertion is, that this does not fail to compile.
-    #[double(DummyTrait)]
+    #[double(DoubleTrait)]
     trait OrgTrait {
         fn answer(&self) -> i32 {
             42
@@ -150,11 +150,11 @@ fn trait_with_existing_default_method_impl() {
     }
 }
 
-// #[test]
-// fn trait_with_associated_types() {
-//     // Compliation test. Test assertion is, that this does not fail to compile.
-//     #[double(DummyTrait)]
-//     trait OrgTrait {
-//         type AssociatedType = i32;
-//     }
-// }
+#[test]
+fn trait_with_associated_types() {
+    // Compliation test. Test assertion is, that this does not fail to compile.
+    #[double(DoubleTrait)]
+    trait OrgTrait {
+        type AssociatedType;
+    }
+}

@@ -1,7 +1,7 @@
 use quote::quote;
 use syn::{
-    FnArg, Ident, ItemTrait, Pat, PatWild, ReturnType, Token, TraitItem, TraitItemFn, Type, parse2,
-    punctuated::Punctuated, spanned::Spanned, token::Comma,
+    FnArg, Ident, ItemTrait, Pat, PatWild, ReturnType, Token, TraitItem, TraitItemFn,
+    TraitItemType, Type, parse2, punctuated::Punctuated, spanned::Spanned, token::Comma,
 };
 
 /// Generate a double trait which mirrors the original trait's methods and provides default
@@ -10,7 +10,7 @@ pub fn double_trait(double_trait_name: Ident, org_trait: ItemTrait) -> syn::Resu
     let items = org_trait
         .items
         .into_iter()
-        .filter_map(|item| transform_trait_item(item).transpose())
+        .map(|item| transform_trait_item(item))
         .collect::<syn::Result<_>>()?;
     Ok(ItemTrait {
         ident: double_trait_name.clone(),
@@ -19,21 +19,28 @@ pub fn double_trait(double_trait_name: Ident, org_trait: ItemTrait) -> syn::Resu
     })
 }
 
-fn transform_trait_item(trait_item: TraitItem) -> syn::Result<Option<TraitItem>> {
+fn transform_trait_item(trait_item: TraitItem) -> syn::Result<TraitItem> {
     // We are only interessted in transforming functions
-    let transformed_trait_item = if let TraitItem::Fn(fn_item) = trait_item {
-        transform_function(fn_item)?.map(TraitItem::Fn)
-    } else {
-        // If it is not a function, we forward the original Item
-        Some(trait_item)
+    let transformed_trait_item = match trait_item {
+        TraitItem::Fn(fn_item) => TraitItem::Fn(transform_function(fn_item)?),
+        TraitItem::Type(ty_item) => TraitItem::Type(transform_type(ty_item)),
+        _ => {
+            // If it is not a function, we forward the original Item
+            trait_item
+        }
     };
     Ok(transformed_trait_item)
 }
 
-// Filter method which already have a default implementation
-fn transform_function(mut fn_item: TraitItemFn) -> syn::Result<Option<TraitItemFn>> {
+fn transform_type(mut ty_item: TraitItemType) -> TraitItemType {
+    // TraitItemType { attrs: (), type_token: (), ident: (), generics: (), colon_token: (), bounds: (), default: (), semi_token: () }
+    ty_item
+}
+
+// Give methods a default implementation, if they do not have one already.
+fn transform_function(mut fn_item: TraitItemFn) -> syn::Result<TraitItemFn> {
     if fn_item.default.is_some() {
-        return Ok(None);
+        return Ok(fn_item);
     }
 
     // We are stripping parameter names in order to avoid warnings regarding unused variables, since
@@ -61,7 +68,7 @@ fn transform_function(mut fn_item: TraitItemFn) -> syn::Result<Option<TraitItemF
 
     fn_item.default = Some(default_impl);
 
-    Ok(Some(fn_item))
+    Ok(fn_item)
 }
 
 fn strip_parameter_names(input: &mut Punctuated<FnArg, Comma>) {
@@ -150,6 +157,34 @@ mod tests {
         };
         assert_eq!(actual.to_string(), expected.to_string());
     }
+
+    // #[test]
+    // fn respect_exisiting_default_type() {
+    //     // Given an original trait with a method returning an impl Future
+    //     let (double_trait_name, org_trait) = given(
+    //         quote! { DoubleTrait },
+    //         quote! {
+    //             trait OriginalTrait {
+    //                 type AssociatedType = i32;
+    //             }
+    //         },
+    //     );
+
+    //     // When generating the double trait
+    //     let double_trait = double_trait(double_trait_name, org_trait).unwrap();
+
+    //     // Then the double trait should have a default implementation for the method which uses
+    //     // an async block
+    //     let actual = quote! { #double_trait };
+    //     let expected = quote! {
+    //         trait DoubleTrait {
+    //             fn method(&self) -> impl Future<Output = ()> {
+    //                 async { unimplemented!() }
+    //             }
+    //         }
+    //     };
+    //     assert_eq!(actual.to_string(), expected.to_string());
+    // }
 
     fn given(attr: proc_macro2::TokenStream, item: proc_macro2::TokenStream) -> (Ident, ItemTrait) {
         let attr: Ident = parse2(attr).unwrap();

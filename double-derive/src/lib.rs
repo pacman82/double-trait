@@ -204,7 +204,9 @@ mod tests {
                 fn foobar() { println!("Hello Default!") }
             }
 
-            pub trait MyTraitDummy {}
+            pub trait MyTraitDummy {
+                fn foobar() { println!("Hello Default!") }
+            }
 
             impl<T> MyTrait for T where T: MyTraitDummy {
                 fn foobar() { <Self as MyTraitDummy>::foobar() }

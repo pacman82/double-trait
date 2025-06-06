@@ -120,7 +120,7 @@ fn dummy_implements_double_trait() {
 #[tokio::test]
 async fn combine_with_async_trait() {
     // Given an original trait with a method `answer`
-    #[async_trait]    
+    #[async_trait]
     #[double(DummyTrait)]
     trait OrgTrait {
         async fn answer(&self) -> i32;
@@ -137,6 +137,17 @@ async fn combine_with_async_trait() {
 
     // The new implementation is used than invoking `OrgTrait::answer` via `MyStruct`
     assert_eq!(42, OrgTrait::answer(&MyStruct).await);
+}
+
+#[test]
+fn trait_with_existing_default_method_impl() {
+    // Compliation test. Test assertion is, that this does not fail to compile.
+    #[double(DummyTrait)]
+    trait OrgTrait {
+        fn answer(&self) -> i32 {
+            42
+        }
+    }
 }
 
 // #[test]

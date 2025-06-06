@@ -138,3 +138,12 @@ async fn combine_with_async_trait() {
     // The new implementation is used than invoking `OrgTrait::answer` via `MyStruct`
     assert_eq!(42, OrgTrait::answer(&MyStruct).await);
 }
+
+// #[test]
+// fn trait_with_associated_types() {
+//     // Compliation test. Test assertion is, that this does not fail to compile.
+//     #[double(DummyTrait)]
+//     trait OrgTrait {
+//         type AssociatedType;
+//     }
+// }

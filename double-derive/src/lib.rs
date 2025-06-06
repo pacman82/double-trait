@@ -3,6 +3,7 @@ use syn::{Error, Ident, ItemTrait, parse_macro_input};
 
 mod double_trait;
 mod trait_impl;
+mod dummy_impl;
 
 use self::{double_trait::double_trait, trait_impl::trait_impl};
 
@@ -82,6 +83,7 @@ pub fn double(
 fn expand(double_trait_name: Ident, org_trait: ItemTrait) -> syn::Result<proc_macro2::TokenStream> {
     let double_trait = double_trait(double_trait_name.clone(), org_trait.clone())?;
     let trait_impl = trait_impl(double_trait_name.clone(), org_trait.clone());
+    let dummy_impl = dummy_impl::dummy_impl(double_trait_name, org_trait.clone());
 
     // We generate three items as part of our output.
     // 1. The orginal trait, which we put in the output unaltered.
@@ -96,7 +98,7 @@ fn expand(double_trait_name: Ident, org_trait: ItemTrait) -> syn::Result<proc_ma
 
         #trait_impl
 
-        impl #double_trait_name for double_trait::Dummy{}
+        #dummy_impl
     };
     Ok(token_stream)
 }

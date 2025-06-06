@@ -160,7 +160,7 @@ mod tests {
 
     #[test]
     fn respect_exisiting_default_type() {
-        // Given an original trait with a method returning an impl Future
+        // Given an original trait with an associated type with a default type
         let (double_trait_name, org_trait) = given(
             quote! { DoubleTrait },
             quote! {
@@ -173,8 +173,7 @@ mod tests {
         // When generating the double trait
         let double_trait = double_trait(double_trait_name, org_trait).unwrap();
 
-        // Then the double trait should have a default implementation for the method which uses
-        // an async block
+        // Then the double trait should have the same default for the associated type
         let actual = quote! { #double_trait };
         let expected = quote! {
             trait DoubleTrait {

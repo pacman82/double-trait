@@ -155,6 +155,6 @@ fn trait_with_existing_default_method_impl() {
 //     // Compliation test. Test assertion is, that this does not fail to compile.
 //     #[double(DummyTrait)]
 //     trait OrgTrait {
-//         type AssociatedType;
+//         type AssociatedType = i32;
 //     }
 // }

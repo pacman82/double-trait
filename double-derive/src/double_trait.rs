@@ -158,33 +158,31 @@ mod tests {
         assert_eq!(actual.to_string(), expected.to_string());
     }
 
-    // #[test]
-    // fn respect_exisiting_default_type() {
-    //     // Given an original trait with a method returning an impl Future
-    //     let (double_trait_name, org_trait) = given(
-    //         quote! { DoubleTrait },
-    //         quote! {
-    //             trait OriginalTrait {
-    //                 type AssociatedType = i32;
-    //             }
-    //         },
-    //     );
+    #[test]
+    fn respect_exisiting_default_type() {
+        // Given an original trait with a method returning an impl Future
+        let (double_trait_name, org_trait) = given(
+            quote! { DoubleTrait },
+            quote! {
+                trait OriginalTrait {
+                    type AssociatedType = i32;
+                }
+            },
+        );
 
-    //     // When generating the double trait
-    //     let double_trait = double_trait(double_trait_name, org_trait).unwrap();
+        // When generating the double trait
+        let double_trait = double_trait(double_trait_name, org_trait).unwrap();
 
-    //     // Then the double trait should have a default implementation for the method which uses
-    //     // an async block
-    //     let actual = quote! { #double_trait };
-    //     let expected = quote! {
-    //         trait DoubleTrait {
-    //             fn method(&self) -> impl Future<Output = ()> {
-    //                 async { unimplemented!() }
-    //             }
-    //         }
-    //     };
-    //     assert_eq!(actual.to_string(), expected.to_string());
-    // }
+        // Then the double trait should have a default implementation for the method which uses
+        // an async block
+        let actual = quote! { #double_trait };
+        let expected = quote! {
+            trait DoubleTrait {
+                type AssociatedType = i32;
+            }
+        };
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
 
     fn given(attr: proc_macro2::TokenStream, item: proc_macro2::TokenStream) -> (Ident, ItemTrait) {
         let attr: Ident = parse2(attr).unwrap();

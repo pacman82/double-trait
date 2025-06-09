@@ -171,7 +171,11 @@ mod tests {
             }
 
             trait MyTraitDummy {
-                fn foobar (&self) { unimplemented!() }
+                fn foobar (&self) {
+                    let double_trait_name = stringify!(MyTraitDummy);
+                    let fn_name = stringify!(foobar);
+                    unimplemented!("{double_trait_name}::{fn_name}")
+                }
             }
 
             impl<T> MyTrait for T where T: MyTraitDummy {
@@ -239,7 +243,11 @@ mod tests {
             }
 
             trait MyTraitDummy {
-                async fn foobar (&self) { unimplemented!() }
+                async fn foobar (&self) {
+                    let double_trait_name = stringify!(MyTraitDummy);
+                    let fn_name = stringify!(foobar);
+                    unimplemented!("{double_trait_name}::{fn_name}")
+                }
             }
 
             impl<T> MyTrait for T where T: MyTraitDummy {

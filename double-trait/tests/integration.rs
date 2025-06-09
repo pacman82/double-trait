@@ -158,3 +158,18 @@ fn trait_with_associated_types() {
         type AssociatedType;
     }
 }
+
+#[test]
+#[should_panic(expected = "not implemented: DummyTrait::answer")]
+fn calling_unimplemented_double_method_mentions_method_name() {
+    // Given an original trait with a method `answer`
+    #[double(DummyTrait)]
+    trait OrgTrait {
+        fn answer(&self) -> i32;
+    }
+
+    // When invoking the default implementation of `answer`
+    OrgTrait::answer(&Dummy);
+
+    // Then the error message mentions the method name
+}

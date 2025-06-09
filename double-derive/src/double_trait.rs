@@ -10,7 +10,7 @@ pub fn double_trait(double_trait_name: Ident, org_trait: ItemTrait) -> syn::Resu
     let items = org_trait
         .items
         .into_iter()
-        .map(|item| transform_trait_item(item))
+        .map(|item| transform_trait_item(item, double_trait_name.clone()))
         .collect::<syn::Result<_>>()?;
     Ok(ItemTrait {
         ident: double_trait_name.clone(),
@@ -19,10 +19,10 @@ pub fn double_trait(double_trait_name: Ident, org_trait: ItemTrait) -> syn::Resu
     })
 }
 
-fn transform_trait_item(trait_item: TraitItem) -> syn::Result<TraitItem> {
+fn transform_trait_item(trait_item: TraitItem, double_trait_name: Ident) -> syn::Result<TraitItem> {
     // We are only interessted in transforming functions
     let transformed_trait_item = match trait_item {
-        TraitItem::Fn(fn_item) => TraitItem::Fn(transform_function(fn_item)?),
+        TraitItem::Fn(fn_item) => TraitItem::Fn(transform_function(fn_item, double_trait_name)?),
         _ => {
             // If it is not a function, we forward the original Item
             trait_item
@@ -32,7 +32,10 @@ fn transform_trait_item(trait_item: TraitItem) -> syn::Result<TraitItem> {
 }
 
 // Give methods a default implementation, if they do not have one already.
-fn transform_function(mut fn_item: TraitItemFn) -> syn::Result<TraitItemFn> {
+fn transform_function(
+    mut fn_item: TraitItemFn,
+    double_trait_name: Ident,
+) -> syn::Result<TraitItemFn> {
     if fn_item.default.is_some() {
         return Ok(fn_item);
     }
@@ -42,6 +45,7 @@ fn transform_function(mut fn_item: TraitItemFn) -> syn::Result<TraitItemFn> {
     strip_parameter_names(&mut fn_item.sig.inputs);
 
     let is_impl_future = is_maybe_impl_future(&fn_item.sig.output);
+    let fn_name = fn_item.sig.ident.clone();
 
     let default_impl =
         if is_impl_future {
@@ -57,7 +61,12 @@ fn transform_function(mut fn_item: TraitItemFn) -> syn::Result<TraitItemFn> {
         } else {
             // Otherwise, we provide a default implementation using unimplemented!
             // We can unwrap here, this body should always compile
-            parse2(quote! {{ unimplemented!() }}).unwrap()
+            parse2(quote! {{
+                let double_trait_name = stringify!(#double_trait_name);
+                let fn_name = stringify!(#fn_name);
+                unimplemented!("{double_trait_name}::{fn_name}")
+            }})
+            .unwrap()
         };
 
     fn_item.default = Some(default_impl);
@@ -145,7 +154,9 @@ mod tests {
         let expected = quote! {
             trait DoubleTrait {
                 fn method(_: i32) {
-                    unimplemented!()
+                    let double_trait_name = stringify!(DoubleTrait);
+                    let fn_name = stringify!(method);
+                    unimplemented!("{double_trait_name}::{fn_name}")
                 }
             }
         };

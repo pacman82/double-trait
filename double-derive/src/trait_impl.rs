@@ -1,7 +1,8 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse2, spanned::Spanned, FnArg, Ident, ImplItem, ImplItemFn, ImplItemType, ItemImpl, ItemTrait, PatType, Token, TraitItem, TraitItemFn, TraitItemType, Visibility
+    FnArg, Ident, ImplItem, ImplItemFn, ImplItemType, ItemImpl, ItemTrait, PatType, Token,
+    TraitItem, TraitItemFn, TraitItemType, Visibility, parse2, spanned::Spanned,
 };
 
 pub fn trait_impl(double_trait_name: Ident, org_trait: ItemTrait) -> ItemImpl {

@@ -44,11 +44,11 @@ fn transform_function(
     // our default implementation is not making use of any arguments.
     strip_parameter_names(&mut fn_item.sig.inputs);
 
-    let is_impl_future = is_maybe_impl_future(&fn_item.sig.output);
+    let return_type_info = return_type_info(&fn_item.sig.output);
     let fn_name = fn_item.sig.ident.clone();
 
-    let default_impl =
-        if is_impl_future {
+    let default_impl = match return_type_info {
+        ReturnTypeInfo::ImplFuture => {
             // If the method returns an impl Future, we provide a default implementation using an
             // async block, so that the compiler won't complain about not being able to infer the
             // type of `impl Future`.
@@ -58,7 +58,8 @@ fn transform_function(
                 fn_item.sig.output.span(),
                 "impl Trait is currently not supported by double-derive. Apart from the special \
                 case of impl Future."))?
-        } else {
+        }
+        ReturnTypeInfo::Other => {
             // Otherwise, we provide a default implementation using unimplemented!
             // We can unwrap here, this body should always compile
             parse2(quote! {{
@@ -67,7 +68,13 @@ fn transform_function(
                 unimplemented!("{double_trait_name}::{fn_name}")
             }})
             .unwrap()
-        };
+        }
+        ReturnTypeInfo::Empty => {
+            // If the function does not return anything, we provide an empty default implementation
+            // to avoid using `unimplemented!()`.
+            parse2(quote! { { } }).unwrap()
+        }
+    };
 
     fn_item.default = Some(default_impl);
 
@@ -86,17 +93,27 @@ fn strip_parameter_names(input: &mut Punctuated<FnArg, Comma>) {
     }
 }
 
-fn is_maybe_impl_future(output: &ReturnType) -> bool {
+fn return_type_info(output: &ReturnType) -> ReturnTypeInfo {
     if let ReturnType::Type(_rarrow, ty) = output {
         if let Type::ImplTrait(ref _impl_trait) = **ty {
             // Technically, not every impl is a "impl Future", but for now we assume that.
-            true
+            ReturnTypeInfo::ImplFuture
         } else {
-            false
+            ReturnTypeInfo::Other
         }
     } else {
-        false
+        ReturnTypeInfo::Empty
     }
+}
+
+enum ReturnTypeInfo {
+    /// If the function does not return, we want the default implementation to be empty, rather than
+    /// using `unimplemented!()`.
+    Empty,
+    /// Indicates that the return type is an impl Future. We want to know this, so we can wrap
+    /// `unimplemented!()` in an async block.
+    ImplFuture,
+    Other,
 }
 
 #[cfg(test)]
@@ -134,7 +151,7 @@ mod tests {
     }
 
     #[test]
-    fn strip_parameter_names_from_default_implementation() {
+    fn empty_default_implementation_if_function_does_not_return_anything() {
         // Given an original trait with a method returning an impl Future
         let (double_trait_name, org_trait) = given(
             quote! { DoubleTrait },
@@ -153,7 +170,63 @@ mod tests {
         let actual = quote! { #double_trait };
         let expected = quote! {
             trait DoubleTrait {
-                fn method(_: i32) {
+                fn method(_: i32) {}
+            }
+        };
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn default_implementation_for_function_with_i32_result() {
+        // Given an original trait with a method returning an impl Future
+        let (double_trait_name, org_trait) = given(
+            quote! { DoubleTrait },
+            quote! {
+                trait OriginalTrait {
+                    fn method(x: i32) -> i32;
+                }
+            },
+        );
+
+        // When generating the double trait
+        let double_trait = double_trait(double_trait_name, org_trait).unwrap();
+
+        // Then the double trait should have a default implementation for the method which uses
+        // an async block
+        let actual = quote! { #double_trait };
+        let expected = quote! {
+            trait DoubleTrait {
+                fn method(_: i32) -> i32 {
+                    let double_trait_name = stringify!(DoubleTrait);
+                    let fn_name = stringify!(method);
+                    unimplemented!("{double_trait_name}::{fn_name}")
+                }
+            }
+        };
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn strip_parameter_names_from_default_implementation() {
+        // Given an original trait with a method returning an impl Future
+        let (double_trait_name, org_trait) = given(
+            quote! { DoubleTrait },
+            quote! {
+                trait OriginalTrait {
+                    fn method(x: i32) -> i32;
+                }
+            },
+        );
+
+        // When generating the double trait
+        let double_trait = double_trait(double_trait_name, org_trait).unwrap();
+
+        // Then the double trait should have a default implementation for the method which uses
+        // an async block
+        let actual = quote! { #double_trait };
+        let expected = quote! {
+            trait DoubleTrait {
+                fn method(_: i32) -> i32{
                     let double_trait_name = stringify!(DoubleTrait);
                     let fn_name = stringify!(method);
                     unimplemented!("{double_trait_name}::{fn_name}")

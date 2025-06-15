@@ -1,6 +1,6 @@
 [package]
 name = "double-trait"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/pacman82/double-trait"
@@ -24,7 +24,7 @@ keywords = ["testing", "double"]
 categories = ["rust-patterns"]
 
 [dependencies]
-double-derive = { version = "0.2.3", path = "../double-derive" }
+double-derive = { version = "0.2.4", path = "../double-derive" }
 
 [dev-dependencies]
 async-trait = "0.1.88"

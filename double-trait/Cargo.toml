@@ -28,4 +28,4 @@ double-derive = { version = "0.2.4", path = "../double-derive" }
 
 [dev-dependencies]
 async-trait = "0.1.88"
-tokio = { version = "1.45.1", features = ["rt", "macros"] }
+tokio = { version = "1.46.1", features = ["rt", "macros"] }

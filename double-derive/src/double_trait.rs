@@ -1,7 +1,7 @@
-use quote::quote;
+use quote::{quote, quote_spanned};
 use syn::{
-    FnArg, Ident, ItemTrait, Pat, PatWild, ReturnType, Token, TraitItem, TraitItemFn, Type, parse2,
-    punctuated::Punctuated, spanned::Spanned, token::Comma,
+    FnArg, Ident, ItemTrait, Pat, PatWild, ReturnType, Token, TraitItem, TraitItemFn, Type,
+    TypeParamBound, parse2, punctuated::Punctuated, spanned::Spanned, token::Comma,
 };
 
 /// Generate a double trait which mirrors the original trait's methods and provides default
@@ -47,34 +47,43 @@ fn transform_function(
     let return_type_info = return_type_info(&fn_item.sig.output);
     let fn_name = fn_item.sig.ident.clone();
 
-    let default_impl = match return_type_info {
-        ReturnTypeInfo::ImplFuture => {
-            // If the method returns an impl Future, we provide a default implementation using an
-            // async block, so that the compiler won't complain about not being able to infer the
-            // type of `impl Future`.
-            // This `quote!` is falliable, because we do not know for sure that the impl is a future
-            parse2(quote! {{ async { unimplemented!() }} })
-            .map_err(|_| syn::Error::new(
-                fn_item.sig.output.span(),
-                "impl Trait is currently not supported by double-derive. Apart from the special \
+    let default_impl =
+        match return_type_info {
+            ReturnTypeInfo::ImplFuture => {
+                // If the method returns an impl Future, we provide a default implementation using an
+                // async block, so that the compiler won't complain about not being able to infer the
+                // type of `impl Future`.
+                // This `quote!` is falliable, because we do not know for sure that the impl is a future
+                parse2(quote! {{ async { unimplemented!() }} })
+                .map_err(|_| syn::Error::new(
+                    fn_item.sig.output.span(),
+                    "impl Trait is currently not supported by double-trait. Apart from the special \
                 case of impl Future."))?
-        }
-        ReturnTypeInfo::Other => {
-            // Otherwise, we provide a default implementation using unimplemented!
-            // We can unwrap here, this body should always compile
-            parse2(quote! {{
-                let double_trait_name = stringify!(#double_trait_name);
-                let fn_name = stringify!(#fn_name);
-                unimplemented!("{double_trait_name}::{fn_name}")
-            }})
-            .unwrap()
-        }
-        ReturnTypeInfo::Empty => {
-            // If the function does not return anything, we provide an empty default implementation
-            // to avoid using `unimplemented!()`.
-            parse2(quote! { { } }).unwrap()
-        }
-    };
+            }
+            ReturnTypeInfo::Other => {
+                // Otherwise, we provide a default implementation using unimplemented!
+                // We can unwrap here, this body should always compile
+                parse2(quote! {{
+                    let double_trait_name = stringify!(#double_trait_name);
+                    let fn_name = stringify!(#fn_name);
+                    unimplemented!("{double_trait_name}::{fn_name}")
+                }})
+                .unwrap()
+            }
+            ReturnTypeInfo::Empty => {
+                // If the function does not return anything, we provide an empty default implementation
+                // to avoid using `unimplemented!()`.
+                parse2(quote! { { } }).unwrap()
+            }
+            ReturnTypeInfo::UnknownImpl => parse2(quote_spanned! {
+                fn_item.sig.output.span() => {
+                    compile_error!(
+                        "impl Trait is currently not supported by double-trait. Apart from the \
+                        special case of impl Future."
+                )}
+            })
+            .unwrap(),
+        };
 
     fn_item.default = Some(default_impl);
 
@@ -95,9 +104,32 @@ fn strip_parameter_names(input: &mut Punctuated<FnArg, Comma>) {
 
 fn return_type_info(output: &ReturnType) -> ReturnTypeInfo {
     if let ReturnType::Type(_rarrow, ty) = output {
-        if let Type::ImplTrait(ref _impl_trait) = **ty {
-            // Technically, not every impl is a "impl Future", but for now we assume that.
-            ReturnTypeInfo::ImplFuture
+        if let Type::ImplTrait(ref impl_trait) = **ty {
+            let mut trait_bounds = impl_trait.bounds.iter().filter_map(|b| match b {
+                TypeParamBound::Trait(trait_bound) => Some(trait_bound),
+                TypeParamBound::Lifetime(_)
+                | TypeParamBound::PreciseCapture(_)
+                | TypeParamBound::Verbatim(_)
+                | _ => None,
+            });
+            let first_trait_bound = trait_bounds
+                .next()
+                .expect("At least one trait bound expected in impl trait.");
+            let identifier = first_trait_bound
+                .path
+                .segments
+                .first()
+                .expect("There must be at least one path segment in trait bound")
+                .ident
+                .to_string();
+            match identifier.as_str() {
+                "Future" => {
+                    // If the first trait bound is Future, we assume that this is an impl Future.
+                    ReturnTypeInfo::ImplFuture
+                }
+                "Iterator" => ReturnTypeInfo::UnknownImpl,
+                _ => ReturnTypeInfo::UnknownImpl,
+            }
         } else {
             ReturnTypeInfo::Other
         }
@@ -113,6 +145,7 @@ enum ReturnTypeInfo {
     /// Indicates that the return type is an impl Future. We want to know this, so we can wrap
     /// `unimplemented!()` in an async block.
     ImplFuture,
+    UnknownImpl,
     Other,
 }
 

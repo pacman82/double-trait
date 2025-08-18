@@ -5,6 +5,8 @@ use syn::{
     TraitItem, TraitItemFn, TraitItemType, Visibility, parse2, spanned::Spanned,
 };
 
+/// Generates the blanket implementation of the original trait for any type that implements the
+/// double trait by forwarding the method calls to methods of the double trait.
 pub fn trait_impl(double_trait_name: Ident, org_trait: ItemTrait) -> ItemImpl {
     let items = org_trait
         .items

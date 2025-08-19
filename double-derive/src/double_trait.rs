@@ -240,6 +240,37 @@ mod tests {
     }
 
     #[test]
+    fn compiler_error_for_unknown_return_impl() {
+        // Given an original trait with a method returning an impl Future
+        let (double_trait_name, org_trait) = given(
+            quote! { DoubleTrait },
+            quote! {
+                trait OriginalTrait {
+                    fn method() -> impl UnsupportedTrait;
+                }
+            },
+        );
+
+        // When generating the double trait
+        let double_trait = double_trait(double_trait_name, org_trait).unwrap();
+
+        // Then the double trait should have a default implementation for the method which uses
+        // an async block
+        let actual = quote! { #double_trait };
+        let expected = quote! {
+            trait DoubleTrait {
+                fn method() -> impl UnsupportedTrait {
+                    compile_error!(
+                        "impl Trait is currently not supported by double-trait. Apart from the \
+                        special case of impl Future."
+                    )
+                }
+            }
+        };
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+
+    #[test]
     fn strip_parameter_names_from_default_implementation() {
         // Given an original trait with a method returning an impl Future
         let (double_trait_name, org_trait) = given(

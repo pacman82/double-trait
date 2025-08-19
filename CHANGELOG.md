@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5](https://github.com/pacman82/double-trait/compare/v0.2.4...v0.2.5) - 2025-08-19
+
+### Added
+
+- Support impl Iterator
+- [**breaking**] Better error message in case of unsupported impl return type in
+
+### Other
+
+- *(deps)* bump tokio from 1.45.1 to 1.47.1
+- *(deps)* bump async-trait from 0.1.88 to 0.1.89
+- Unit test for compile_error
+- *(deps)* bump proc-macro2 from 1.0.95 to 1.0.97
+- *(deps)* bump syn from 2.0.103 to 2.0.105
+- Doc comment for `trait_impl`
+
 ## [0.2.4](https://github.com/pacman82/double-trait/compare/v0.2.3...v0.2.4) - 2025-06-15
 
 ### Added

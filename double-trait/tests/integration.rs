@@ -106,6 +106,26 @@ async fn impl_future_method_invocation() {
     assert_eq!(42, OrgTrait::answer(&MyStruct).await);
 }
 
+#[tokio::test]
+async fn impl_iterator_method_invocation() {
+    // Given an original trait with a method `answer`
+    #[double(DummyTrait)]
+    trait OrgTrait {
+        fn answer(&self) -> impl Iterator<Item = String>;
+    }
+
+    // When overriding default implementation of `answer` in `DummyTrait`
+    struct MyStruct;
+    impl DummyTrait for MyStruct {
+        fn answer(&self) -> impl Iterator<Item = String> {
+            (0..1).map(|i| format!("Item {}", i))
+        }
+    }
+
+    // The new implementation is used than invoking `OrgTrait::answer` via `MyStruct`
+    assert_eq!("Item 0", OrgTrait::answer(&MyStruct).next().unwrap());
+}
+
 #[test]
 fn dummy_implements_double_trait() {
     // When deriving a double `DummyTrait`
@@ -173,7 +193,6 @@ fn calling_unimplemented_double_method_mentions_method_name() {
 
     // Then the error message mentions the method name
 }
-
 
 // Replace me with a compilation test using `trybuild`.
 // #[double(MyTraitWithImplReturnDouble)]

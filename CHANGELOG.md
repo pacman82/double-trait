@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6](https://github.com/pacman82/double-trait/compare/v0.2.5...v0.2.6) - 2025-08-25
+
+### Other
+
+- migrated integration tests from double to dummies macro
+- Introduce macro `dummies`
+- extract double macro expansion into submodule of derive crate
+- migrate tests from double to dummies macro
+- Module dummy_impl is top level (again)
+- Reuse double_trait for dummies macro
+- Unit test for dummie on empty trait
+
 ## [0.2.5](https://github.com/pacman82/double-trait/compare/v0.2.4...v0.2.5) - 2025-08-19
 
 ### Added

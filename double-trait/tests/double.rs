@@ -193,9 +193,3 @@ fn calling_unimplemented_double_method_mentions_method_name() {
 
     // Then the error message mentions the method name
 }
-
-// Replace me with a compilation test using `trybuild`.
-// #[double(MyTraitWithImplReturnDouble)]
-// trait MyTraitWithImplReturn {
-//     fn method(&self) -> impl Iterator<Item = ()>;
-// }

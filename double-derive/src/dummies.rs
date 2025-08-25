@@ -1,16 +1,19 @@
 use quote::quote;
 use syn::ItemTrait;
 
-use crate::double_trait::double_trait;
+use crate::{double_trait::double_trait, dummy_impl::dummy_impl};
 
 /// The main implementation of [`crate::dummies`]. This function is not annotated with
 /// `#[proc_macro_attribute]` so it can exist in unit tests. It uses only APIs build on top of
 /// [`proc_macro2`] in order to be unit testable.
 pub fn expand(org_trait: ItemTrait) -> syn::Result<proc_macro2::TokenStream> {
     let trait_with_dummies = double_trait(org_trait.ident.clone(), org_trait.clone())?;
+    let dummy_impl = dummy_impl(org_trait.ident.clone(), org_trait);
 
     let token_stream = quote! {
         #trait_with_dummies
+
+        #dummy_impl
     };
     Ok(token_stream)
 }
@@ -27,7 +30,7 @@ mod tests {
     fn dummies_for_empty_trait() {
         // Given an empty trait
         let empty_trait = given(quote! {
-            pub trait MyTrait {}
+            trait MyTrait {}
         });
 
         // When expanded with `dummies`
@@ -35,7 +38,9 @@ mod tests {
 
         // Then it will be unchanged
         let expected = quote! {
-            pub trait MyTrait{}
+            trait MyTrait{}
+
+            impl MyTrait for double_trait::Dummy {}
         };
         assert_eq!(expected.to_string(), output.to_string())
     }
@@ -51,6 +56,8 @@ mod tests {
         // Then the generated trait should be public, too
         let expected = quote! {
             pub trait MyTrait {}
+
+            impl MyTrait for double_trait::Dummy {}
         };
         assert_eq!(expected.to_string(), output.to_string());
     }

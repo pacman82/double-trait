@@ -1,4 +1,5 @@
 mod double;
+mod double_trait;
 mod dummies;
 
 use syn::{Error, Ident, ItemTrait, parse_macro_input};

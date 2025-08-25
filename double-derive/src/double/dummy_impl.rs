@@ -41,7 +41,7 @@ mod tests {
     use quote::quote;
     use syn::{Ident, ItemTrait, parse2};
 
-    use crate::dummy_impl::dummy_impl;
+    use super::dummy_impl;
 
     #[test]
     fn provide_default_implementation_for_associated_types() {

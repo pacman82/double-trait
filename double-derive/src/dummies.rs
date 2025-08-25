@@ -27,7 +27,7 @@ mod tests {
     use super::expand;
 
     #[test]
-    fn dummies_for_empty_trait() {
+    fn private_empty_trait() {
         // Given an empty trait
         let empty_trait = given(quote! {
             trait MyTrait {}
@@ -46,7 +46,7 @@ mod tests {
     }
 
     #[test]
-    fn forward_visibility() {
+    fn public_empty_trait() {
         // Given a public trait
         let org_trait = given(quote! { pub trait MyTrait {} });
 
@@ -56,6 +56,102 @@ mod tests {
         // Then the generated trait should be public, too
         let expected = quote! {
             pub trait MyTrait {}
+
+            impl MyTrait for double_trait::Dummy {}
+        };
+        assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    #[test]
+    fn empty_default_method() {
+        // Given a trait with a method which returns unit
+        let item = given(quote! {
+            trait MyTrait {
+                fn foobar(&self);
+            }
+        });
+
+        // When generating the dummy
+        let output = expand(item).unwrap();
+
+        // Then the generated trait should contain a default implementation doing nothing
+        let expected = quote! {
+            trait MyTrait {
+                fn foobar(&self) {}
+            }
+
+            impl MyTrait for double_trait::Dummy {}
+        };
+        assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    #[test]
+    fn dummy_default_method() {
+        // Given a trait with a method which returns something (e.g. i32)
+        let item = given(quote! {
+            trait MyTrait {
+                fn foobar(&self) -> i32;
+            }
+        });
+
+        // When generating the dummy
+        let output = expand(item).unwrap();
+
+        // Then the generated trait should contain a default implementation calling unimplemented!()
+        let expected = quote! {
+            trait MyTrait {
+                fn foobar(&self) -> i32 {
+                    let double_trait_name = stringify!(MyTrait);
+                    let fn_name = stringify!(foobar);
+                    unimplemented!("{double_trait_name}::{fn_name}")
+                }
+            }
+
+            impl MyTrait for double_trait::Dummy {}
+        };
+        assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    #[test]
+    fn respect_existing_default_impl() {
+        // Given a method with a default implementation in the original trait
+        let item = given(quote! {
+            pub trait MyTrait {
+                fn foobar() { println!("Hello Default!") }
+            }
+        });
+
+        // When generating the dummy
+        let output = expand(item).unwrap();
+
+        // Then the generated trait should not overide the existing default
+        let expected = quote! {
+            pub trait MyTrait {
+                fn foobar() { println!("Hello Default!") }
+            }
+
+            impl MyTrait for double_trait::Dummy {}
+        };
+        assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    #[test]
+    fn forward_async_method_with_unit_return() {
+        // Given a trait with an async method returning uint
+        let item = given(quote! {
+            trait MyTrait {
+                async fn foobar(&self);
+            }
+        });
+
+        // When generating the dummy
+        let output = expand(item).unwrap();
+
+        // Then the generated trait should contain an empty default implementation
+        let expected = quote! {
+            trait MyTrait {
+                async fn foobar(&self) {}
+            }
 
             impl MyTrait for double_trait::Dummy {}
         };

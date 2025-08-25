@@ -1,11 +1,11 @@
-mod double_trait;
 mod dummy_impl;
 mod trait_impl;
 
 use quote::quote;
 use syn::{Ident, ItemTrait};
 
-use self::{double_trait::double_trait, trait_impl::trait_impl};
+use self::trait_impl::trait_impl;
+use crate::double_trait::double_trait;
 
 /// The main implementation of [`crate::double`]. This function is not annotated with
 /// `#[proc_macro_attribute]` so it can exist in unit tests. It uses only APIs build on top of

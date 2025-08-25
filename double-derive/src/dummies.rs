@@ -12,4 +12,32 @@ pub fn expand(org_trait: ItemTrait) -> syn::Result<proc_macro2::TokenStream> {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+
+    use quote::quote;
+    use syn::{ItemTrait, parse2};
+
+    use super::expand;
+
+    #[test]
+    fn dummies_for_empty_trait() {
+        // Given an empty trait
+        let empty_trait = given(quote! {
+            pub trait MyTrait {}
+        });
+
+        // When expanded with `dummies`
+        let output = expand(empty_trait).unwrap();
+
+        // Then it will be unchanged
+        let expected = quote! {
+            pub trait MyTrait{}
+        };
+        assert_eq!(expected.to_string(), output.to_string())
+    }
+
+    fn given(item: proc_macro2::TokenStream) -> ItemTrait {
+        let item: ItemTrait = parse2(item).unwrap();
+        item
+    }
+}

@@ -1,11 +1,10 @@
-mod dummy_impl;
 mod trait_impl;
 
 use quote::quote;
 use syn::{Ident, ItemTrait};
 
 use self::trait_impl::trait_impl;
-use crate::double_trait::double_trait;
+use crate::{double_trait::double_trait, dummy_impl::dummy_impl};
 
 /// The main implementation of [`crate::double`]. This function is not annotated with
 /// `#[proc_macro_attribute]` so it can exist in unit tests. It uses only APIs build on top of
@@ -16,7 +15,7 @@ pub fn expand(
 ) -> syn::Result<proc_macro2::TokenStream> {
     let double_trait = double_trait(double_trait_name.clone(), org_trait.clone())?;
     let trait_impl = trait_impl(double_trait_name.clone(), org_trait.clone());
-    let dummy_impl = dummy_impl::dummy_impl(double_trait_name, org_trait.clone());
+    let dummy_impl = dummy_impl(double_trait_name, org_trait.clone());
 
     // We generate three items as part of our output.
     // 1. The orginal trait, which we put in the output unaltered.

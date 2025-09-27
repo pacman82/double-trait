@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7](https://github.com/pacman82/double-trait/compare/v0.2.6...v0.2.7) - 2025-09-27
+
+### Added
+
+- Generated default dummies for method returning futures now work in
+- [**breaking**] Drop support for `double` macro. It is fully replaced by
+
+### Other
+
+- Extract type_info
+- Remove ability to switch trait name from double_trait
+
 ## [0.2.6](https://github.com/pacman82/double-trait/compare/v0.2.5...v0.2.6) - 2025-08-25
 
 ### Other

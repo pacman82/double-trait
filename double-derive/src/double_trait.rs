@@ -100,40 +100,45 @@ fn strip_parameter_names(input: &mut Punctuated<FnArg, Comma>) {
 
 fn return_type_info(output: &ReturnType) -> ReturnTypeInfo {
     if let ReturnType::Type(_rarrow, ty) = output {
-        if let Type::ImplTrait(ref impl_trait) = **ty {
-            let mut trait_bounds = impl_trait.bounds.iter().filter_map(|b| match b {
-                TypeParamBound::Trait(trait_bound) => Some(trait_bound),
-                TypeParamBound::Lifetime(_)
-                | TypeParamBound::PreciseCapture(_)
-                | TypeParamBound::Verbatim(_)
-                | _ => None,
-            });
-            let first_trait_bound = trait_bounds
-                .next()
-                .expect("At least one trait bound expected in impl trait.");
-            let identifier = first_trait_bound
-                .path
-                .segments
-                .first()
-                .expect("There must be at least one path segment in trait bound")
-                .ident
-                .to_string();
-            match identifier.as_str() {
-                "Future" => {
-                    // If the first trait bound is Future, we assume that this is an impl Future.
-                    ReturnTypeInfo::ImplFuture
-                }
-                "Iterator" => ReturnTypeInfo::ImplIterator,
-                _ => ReturnTypeInfo::UnknownImpl,
-            }
-        } else {
-            ReturnTypeInfo::Other
-        }
+        type_info(ty)
     } else {
         ReturnTypeInfo::Empty
     }
 }
 
+fn type_info(ty: &Type) -> ReturnTypeInfo {
+    if let Type::ImplTrait(ref impl_trait) = *ty {
+        let mut trait_bounds = impl_trait.bounds.iter().filter_map(|b| match b {
+            TypeParamBound::Trait(trait_bound) => Some(trait_bound),
+            TypeParamBound::Lifetime(_)
+            | TypeParamBound::PreciseCapture(_)
+            | TypeParamBound::Verbatim(_)
+            | _ => None,
+        });
+        let first_trait_bound = trait_bounds
+            .next()
+            .expect("At least one trait bound expected in impl trait.");
+        let identifier = first_trait_bound
+            .path
+            .segments
+            .first()
+            .expect("There must be at least one path segment in trait bound")
+            .ident
+            .to_string();
+        match identifier.as_str() {
+            "Future" => {
+                // If the first trait bound is Future, we assume that this is an impl Future.
+                ReturnTypeInfo::ImplFuture
+            }
+            "Iterator" => ReturnTypeInfo::ImplIterator,
+            _ => ReturnTypeInfo::UnknownImpl,
+        }
+    } else {
+        ReturnTypeInfo::Other
+    }
+}
+
+#[derive(Debug)]
 enum ReturnTypeInfo {
     /// If the function does not return, we want the default implementation to be empty, rather than
     /// using `unimplemented!()`.
@@ -148,9 +153,15 @@ enum ReturnTypeInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::double_trait;
+    use super::{ReturnTypeInfo, double_trait, return_type_info};
     use quote::quote;
-    use syn::{ItemTrait, parse2};
+    use syn::{ItemTrait, ReturnType, parse2};
+
+    #[test]
+    fn return_type_info_from_return_type() {
+        let rt: ReturnType = parse2(quote! {-> i32 }).unwrap();
+        assert!(matches!(return_type_info(&rt), ReturnTypeInfo::Other));
+    }
 
     #[test]
     fn default_impl_for_method_with_impl_future_return() {

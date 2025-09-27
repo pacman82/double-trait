@@ -157,3 +157,46 @@ fn calling_unimplemented_double_method_mentions_method_name() {
 
     // Then the error message mentions the method name
 }
+
+#[test]
+fn don_t_panic_on_invoking_method_with_no_return_type() {
+    // Given an original trait with a method `answer`
+    #[dummies]
+    trait MyTrait {
+        fn answer(&self);
+    }
+
+    // When invoking the default implementation of `answer`
+    Dummy.answer();
+
+    // Then no panic occurs
+}
+
+#[tokio::test]
+async fn don_t_panic_on_invoking_method_returning_future_with_unit() {
+    // Given an original trait with a method `answer`
+    #[dummies]
+    trait MyTrait {
+        fn answer(&self) -> impl Future<Output = ()>;
+    }
+
+    // When invoking the default implementation of `answer`
+    Dummy.answer().await;
+
+    // Then no panic occurs
+}
+
+#[tokio::test]
+async fn future_of_iterator() {
+    // Given an original trait with a method `answer`
+    #[dummies]
+    trait MyTrait {
+        fn answer(&self) -> impl Future<Output = impl Iterator<Item = i32>>;
+    }
+
+    // When invoking the default implementation of `answer`
+    let values: Vec<_> = Dummy.answer().await.collect();
+
+    // Then
+    assert!(values.is_empty())
+}

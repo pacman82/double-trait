@@ -7,7 +7,7 @@ use crate::{double_trait::double_trait, dummy_impl::dummy_impl};
 /// `#[proc_macro_attribute]` so it can exist in unit tests. It uses only APIs build on top of
 /// [`proc_macro2`] in order to be unit testable.
 pub fn expand(org_trait: ItemTrait) -> syn::Result<proc_macro2::TokenStream> {
-    let trait_with_dummies = double_trait(org_trait.ident.clone(), org_trait.clone())?;
+    let trait_with_dummies = double_trait(org_trait.clone())?;
     let dummy_impl = dummy_impl(org_trait.ident.clone(), org_trait);
 
     let token_stream = quote! {

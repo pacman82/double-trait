@@ -6,17 +6,13 @@ use syn::{
 
 /// Generate a double trait which mirrors the original trait's methods and provides default
 /// implementations using `unimplemented!()`.
-pub fn double_trait(double_trait_name: Ident, org_trait: ItemTrait) -> syn::Result<ItemTrait> {
+pub fn double_trait(org_trait: ItemTrait) -> syn::Result<ItemTrait> {
     let items = org_trait
         .items
         .into_iter()
-        .map(|item| transform_trait_item(item, double_trait_name.clone()))
+        .map(|item| transform_trait_item(item, org_trait.ident.clone()))
         .collect::<syn::Result<_>>()?;
-    Ok(ItemTrait {
-        ident: double_trait_name.clone(),
-        items,
-        ..org_trait
-    })
+    Ok(ItemTrait { items, ..org_trait })
 }
 
 fn transform_trait_item(trait_item: TraitItem, double_trait_name: Ident) -> syn::Result<TraitItem> {
@@ -154,28 +150,25 @@ enum ReturnTypeInfo {
 mod tests {
     use super::double_trait;
     use quote::quote;
-    use syn::{Ident, ItemTrait, parse2};
+    use syn::{ItemTrait, parse2};
 
     #[test]
     fn default_impl_for_method_with_impl_future_return() {
         // Given an original trait with a method returning an impl Future
-        let (double_trait_name, org_trait) = given(
-            quote! { DoubleTrait },
-            quote! {
-                trait OriginalTrait {
-                    fn method(&self) -> impl Future<Output = ()>;
-                }
-            },
-        );
+        let org_trait = given(quote! {
+            trait MyTrait {
+                fn method(&self) -> impl Future<Output = ()>;
+            }
+        });
 
         // When generating the double trait
-        let double_trait = double_trait(double_trait_name, org_trait).unwrap();
+        let double_trait = double_trait(org_trait).unwrap();
 
         // Then the double trait should have a default implementation for the method which uses
         // an async block
         let actual = quote! { #double_trait };
         let expected = quote! {
-            trait DoubleTrait {
+            trait MyTrait {
                 fn method(&self) -> impl Future<Output = ()> {
                     async { unimplemented!() }
                 }
@@ -187,23 +180,20 @@ mod tests {
     #[test]
     fn default_impl_for_method_with_impl_iterator_return() {
         // Given an original trait with a method returning an impl Iterator
-        let (double_trait_name, org_trait) = given(
-            quote! { DoubleTrait },
-            quote! {
-                trait OriginalTrait {
-                    fn method(&self) -> impl Iterator<Item = String>;
-                }
-            },
-        );
+        let org_trait = given(quote! {
+            trait MyTrait {
+                fn method(&self) -> impl Iterator<Item = String>;
+            }
+        });
 
         // When generating the double trait
-        let double_trait = double_trait(double_trait_name, org_trait).unwrap();
+        let double_trait = double_trait(org_trait).unwrap();
 
         // Then the double trait should have a default implementation for the method which uses
         // an empty array iterator
         let actual = quote! { #double_trait };
         let expected = quote! {
-            trait DoubleTrait {
+            trait MyTrait {
                 fn method(&self) -> impl Iterator<Item = String> {
                     [].into_iter()
                 }
@@ -215,22 +205,19 @@ mod tests {
     #[test]
     fn empty_default_implementation_if_function_does_not_return_anything() {
         // Given
-        let (double_trait_name, org_trait) = given(
-            quote! { DoubleTrait },
-            quote! {
-                trait OriginalTrait {
-                    fn method(x: i32);
-                }
-            },
-        );
+        let org_trait = given(quote! {
+            trait MyTrait {
+                fn method(x: i32);
+            }
+        });
 
         // When
-        let double_trait = double_trait(double_trait_name, org_trait).unwrap();
+        let double_trait = double_trait(org_trait).unwrap();
 
         // Then
         let actual = quote! { #double_trait };
         let expected = quote! {
-            trait DoubleTrait {
+            trait MyTrait {
                 fn method(_: i32) {}
             }
         };
@@ -240,25 +227,22 @@ mod tests {
     #[test]
     fn default_implementation_for_function_with_i32_result() {
         // Given an original trait with a method returning an i32
-        let (double_trait_name, org_trait) = given(
-            quote! { DoubleTrait },
-            quote! {
-                trait OriginalTrait {
-                    fn method(x: i32) -> i32;
-                }
-            },
-        );
+        let org_trait = given(quote! {
+            trait MyTrait {
+                fn method(x: i32) -> i32;
+            }
+        });
 
         // When generating the double trait
-        let double_trait = double_trait(double_trait_name, org_trait).unwrap();
+        let double_trait = double_trait(org_trait).unwrap();
 
         // Then the double trait should have a default implementation with unimplemented!() which
         // uses the trait and function name in the error message.
         let actual = quote! { #double_trait };
         let expected = quote! {
-            trait DoubleTrait {
+            trait MyTrait {
                 fn method(_: i32) -> i32 {
-                    let double_trait_name = stringify!(DoubleTrait);
+                    let double_trait_name = stringify!(MyTrait);
                     let fn_name = stringify!(method);
                     unimplemented!("{double_trait_name}::{fn_name}")
                 }
@@ -270,23 +254,20 @@ mod tests {
     #[test]
     fn compiler_error_for_unknown_return_impl() {
         // Given an original trait with a method returning an impl to an unsupported trait
-        let (double_trait_name, org_trait) = given(
-            quote! { DoubleTrait },
-            quote! {
-                trait OriginalTrait {
-                    fn method() -> impl UnsupportedTrait;
-                }
-            },
-        );
+        let org_trait = given(quote! {
+            trait MyTrait {
+                fn method() -> impl UnsupportedTrait;
+            }
+        });
 
         // When generating the double trait
-        let double_trait = double_trait(double_trait_name, org_trait).unwrap();
+        let double_trait = double_trait(org_trait).unwrap();
 
         // Then the double trait should have a default implementation which generates a nice compile
         // error.
         let actual = quote! { #double_trait };
         let expected = quote! {
-            trait DoubleTrait {
+            trait MyTrait {
                 fn method() -> impl UnsupportedTrait {
                     compile_error!(
                         "impl Trait is currently not supported by double-trait. Apart from the \
@@ -301,25 +282,22 @@ mod tests {
     #[test]
     fn strip_parameter_names_from_default_implementation() {
         // Given an original trait with a method returning an impl Future
-        let (double_trait_name, org_trait) = given(
-            quote! { DoubleTrait },
-            quote! {
-                trait OriginalTrait {
-                    fn method(x: i32) -> i32;
-                }
-            },
-        );
+        let org_trait = given(quote! {
+            trait MyTrait {
+                fn method(x: i32) -> i32;
+            }
+        });
 
         // When generating the double trait
-        let double_trait = double_trait(double_trait_name, org_trait).unwrap();
+        let double_trait = double_trait(org_trait).unwrap();
 
         // Then the double trait should have a default implementation for the method which uses
         // an async block
         let actual = quote! { #double_trait };
         let expected = quote! {
-            trait DoubleTrait {
+            trait MyTrait {
                 fn method(_: i32) -> i32{
-                    let double_trait_name = stringify!(DoubleTrait);
+                    let double_trait_name = stringify!(MyTrait);
                     let fn_name = stringify!(method);
                     unimplemented!("{double_trait_name}::{fn_name}")
                 }
@@ -328,9 +306,7 @@ mod tests {
         assert_eq!(actual.to_string(), expected.to_string());
     }
 
-    fn given(attr: proc_macro2::TokenStream, item: proc_macro2::TokenStream) -> (Ident, ItemTrait) {
-        let attr: Ident = parse2(attr).unwrap();
-        let item: ItemTrait = parse2(item).unwrap();
-        (attr, item)
+    fn given(item: proc_macro2::TokenStream) -> ItemTrait {
+        parse2(item).unwrap()
     }
 }

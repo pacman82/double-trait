@@ -200,3 +200,18 @@ async fn future_of_iterator() {
     // Then
     assert!(values.is_empty())
 }
+
+#[tokio::test]
+async fn iterator_of_future() {
+    // Given an original trait with a method `answer`
+    #[dummies]
+    trait MyTrait {
+        fn answer(&self) -> impl Iterator<Item = impl Future<Output = i32>>;
+    }
+
+    // When invoking the default implementation of `answer`
+    let values: Vec<_> = Dummy.answer().collect();
+
+    // Then
+    assert!(values.is_empty())
+}

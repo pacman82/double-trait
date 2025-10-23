@@ -44,59 +44,11 @@ fn transform_function(
     let return_type_info = return_type_info(&fn_item.sig.output);
     let fn_name = fn_item.sig.ident.clone();
 
-    let default_impl = default_impl(&fn_item, double_trait_name, &return_type_info, fn_name);
+    let default_impl = return_type_info.default_impl(&fn_item, double_trait_name, fn_name);
 
     fn_item.default = Some(default_impl);
 
     Ok(fn_item)
-}
-
-fn default_impl(
-    fn_item: &TraitItemFn,
-    double_trait_name: Ident,
-    return_type_info: &ReturnTypeInfo,
-    fn_name: Ident,
-) -> Block {
-    match return_type_info {
-        ReturnTypeInfo::ImplFuture { output } => {
-            // Treat missing Output type like other, i.e. use unimplemented!() in the async block
-            let output = output.as_deref().unwrap_or(&ReturnTypeInfo::Other);
-            let inner = default_impl(fn_item, double_trait_name, output, fn_name);
-            // If the method returns an impl Future, we provide a default implementation using an
-            // async block, so that the compiler won't complain about not being able to infer the
-            // type of `impl Future`.
-            parse2(quote! {{ async #inner }}).unwrap()
-        }
-        ReturnTypeInfo::ImplIterator => {
-            // If the method returns an impl Iterator, we provide a default implementation using an
-            // empty array, so that the compiler won't complain about not being able to infer the
-            // type of `impl Iterator`.
-            parse2(quote! {{ [].into_iter() }}).unwrap()
-        }
-        ReturnTypeInfo::Other => {
-            // Otherwise, we provide a default implementation using unimplemented!
-            // We can unwrap here, this body should always compile
-            parse2(quote! {{
-                let double_trait_name = stringify!(#double_trait_name);
-                let fn_name = stringify!(#fn_name);
-                unimplemented!("{double_trait_name}::{fn_name}")
-            }})
-            .unwrap()
-        }
-        ReturnTypeInfo::Empty => {
-            // If the function does not return anything, we provide an empty default implementation
-            // to avoid using `unimplemented!()`.
-            parse2(quote! { { } }).unwrap()
-        }
-        ReturnTypeInfo::UnknownImpl => parse2(quote_spanned! {
-            fn_item.sig.output.span() => {
-                compile_error!(
-                    "impl Trait is currently not supported by double-trait. Apart from the \
-                    special case of impl Future."
-            )}
-        })
-        .unwrap(),
-    }
 }
 
 fn strip_parameter_names(input: &mut Punctuated<FnArg, Comma>) {
@@ -140,13 +92,18 @@ fn type_info(ty: &Type) -> ReturnTypeInfo {
             let identifier = &first_path_segment.ident.to_string();
             match identifier.as_str() {
                 "Future" => {
-                    let output = associated_output_type(&first_path_segment.arguments);
+                    let output = assoctiated_type(&first_path_segment.arguments, "Output");
                     // If the first trait bound is Future, we assume that this is an impl Future.
                     ReturnTypeInfo::ImplFuture {
                         output: output.map(|ty| Box::new(type_info(ty))),
                     }
                 }
-                "Iterator" => ReturnTypeInfo::ImplIterator,
+                "Iterator" => {
+                    let item = assoctiated_type(&first_path_segment.arguments, "Item");
+                    ReturnTypeInfo::ImplIterator {
+                        item: item.map(|ty| Box::new(type_info(ty))),
+                    }
+                }
                 _ => ReturnTypeInfo::UnknownImpl,
             }
         }
@@ -162,7 +119,10 @@ fn type_info(ty: &Type) -> ReturnTypeInfo {
 }
 
 /// Find the associated output type of an impl Future trait. E.g. the `i64` in impl Future<Output=i64>.
-fn associated_output_type(future_trait_args: &PathArguments) -> Option<&Type> {
+fn assoctiated_type<'a>(
+    future_trait_args: &'a PathArguments,
+    associated: &str,
+) -> Option<&'a Type> {
     let PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }) =
         future_trait_args
     else {
@@ -176,8 +136,8 @@ fn associated_output_type(future_trait_args: &PathArguments) -> Option<&Type> {
             };
             Some(at)
         })
-        // Find the associated type named "Output"
-        .find(|at| at.ident == "Output")
+        // Find the associated type
+        .find(|at| at.ident == associated)
         // Return the type of the associated type
         .map(|at| &at.ty)
 }
@@ -192,9 +152,76 @@ enum ReturnTypeInfo {
     ImplFuture {
         output: Option<Box<ReturnTypeInfo>>,
     },
-    ImplIterator,
+    ImplIterator {
+        item: Option<Box<ReturnTypeInfo>>,
+    },
     UnknownImpl,
     Other,
+}
+
+impl ReturnTypeInfo {
+    fn default_impl(
+        &self,
+        fn_item: &TraitItemFn,
+        double_trait_name: Ident,
+        fn_name: Ident,
+    ) -> Block {
+        match self {
+            ReturnTypeInfo::ImplFuture { output } => {
+                // Treat missing Output type like other, i.e. use unimplemented!() in the async block
+                let output = output.as_deref().unwrap_or(&ReturnTypeInfo::Other);
+                let inner = output.default_impl(fn_item, double_trait_name, fn_name);
+                // If the method returns an impl Future, we provide a default implementation using an
+                // async block, so that the compiler won't complain about not being able to infer the
+                // type of `impl Future`.
+                parse2(quote! {{ async #inner }}).unwrap()
+            }
+            ReturnTypeInfo::ImplIterator { item } => {
+                // If the method returns an impl Iterator, we provide a default implementation using an
+                // an iterator returning no elements.
+
+                let item = item.as_deref().unwrap_or(&ReturnTypeInfo::Other);
+                let inner = item.default_impl(fn_item, double_trait_name, fn_name);
+
+                // We are constructing an empty interator, but we still want to be able to infer an
+                // element type from `#inner` if possible.
+                parse2(quote! {{
+                    #[allow(unreachable_code)]
+                    std::iter::from_fn(move || {
+                        if false {
+                            Some(#inner)
+                        } else {
+                            None
+                        }
+                    })
+                }})
+                .unwrap()
+            }
+            ReturnTypeInfo::Other => {
+                // Otherwise, we provide a default implementation using unimplemented!
+                // We can unwrap here, this body should always compile
+                parse2(quote! {{
+                    let double_trait_name = stringify!(#double_trait_name);
+                    let fn_name = stringify!(#fn_name);
+                    unimplemented!("{double_trait_name}::{fn_name}")
+                }})
+                .unwrap()
+            }
+            ReturnTypeInfo::Empty => {
+                // If the function does not return anything, we provide an empty default implementation
+                // to avoid using `unimplemented!()`.
+                parse2(quote! { { } }).unwrap()
+            }
+            ReturnTypeInfo::UnknownImpl => parse2(quote_spanned! {
+                fn_item.sig.output.span() => {
+                    compile_error!(
+                        "impl Trait is currently not supported by double-trait. Apart from the \
+                        special case of impl Future."
+                )}
+            })
+            .unwrap(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -249,7 +276,10 @@ mod tests {
         else {
             panic!("Expected ReturnTypeInfo::ImplFuture with Some output");
         };
-        assert!(matches!(*output, ReturnTypeInfo::ImplIterator));
+        assert!(matches!(
+            *output,
+            ReturnTypeInfo::ImplIterator { item: Some(_) }
+        ));
     }
 
     #[test]
@@ -324,7 +354,18 @@ mod tests {
         let expected = quote! {
             trait MyTrait {
                 fn method(&self) -> impl Iterator<Item = String> {
-                    [].into_iter()
+                    #[allow(unreachable_code)]
+                    std::iter::from_fn(move | | {
+                        if false {
+                            Some({
+                                let double_trait_name = stringify!(MyTrait);
+                                let fn_name = stringify!(method);
+                                unimplemented!("{double_trait_name}::{fn_name}")
+                            })
+                        } else {
+                            None
+                        }
+                    })
                 }
             }
         };
@@ -400,7 +441,7 @@ mod tests {
                 fn method() -> impl UnsupportedTrait {
                     compile_error!(
                         "impl Trait is currently not supported by double-trait. Apart from the \
-                    special case of impl Future."
+                        special case of impl Future."
                     )
                 }
             }

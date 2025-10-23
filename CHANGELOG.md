@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.8](https://github.com/pacman82/double-trait/compare/v0.2.7...v0.2.8) - 2025-10-23
+
+### Added
+
+- Support for Iterators with `Item = impl ...` generic associated
+
+### Other
+
+- Upadte Readme
+- *(deps)* bump tokio from 1.47.1 to 1.48.0
+- Document how to deal with unknown impl return types.
+- Remove superfluous comment
+- *(deps)* bump syn from 2.0.106 to 2.0.107
+- *(deps)* bump quote from 1.0.40 to 1.0.41
+
 ## [0.2.7](https://github.com/pacman82/double-trait/compare/v0.2.6...v0.2.7) - 2025-09-27
 
 ### Added

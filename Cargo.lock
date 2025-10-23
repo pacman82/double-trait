@@ -15,7 +15,7 @@ dependencies = [
 
 [[package]]
 name = "double-derive"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "async-trait",
  "double-trait",
@@ -26,7 +26,7 @@ dependencies = [
 
 [[package]]
 name = "double-trait"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "async-trait",
  "double-derive",

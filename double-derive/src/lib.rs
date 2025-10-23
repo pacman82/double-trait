@@ -18,7 +18,6 @@ pub fn dummies(
     _attr: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    // let double_name = parse_macro_input!(attr as Ident);
     let item = parse_macro_input!(item as ItemTrait);
 
     let output = dummies::expand(item).unwrap_or_else(Error::into_compile_error);

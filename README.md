@@ -5,12 +5,9 @@ A procedural macro to derive a mirror of a trait designed to make it easier to i
 ## Usage
 
 ```rust
-#[cfg(test)]
-use double_trait::double;
-
-// Given an original trait with a derived `DummyTrait` test double
-#[cfg_attr(test, double(DummyTrait))]
-trait OrgTrait {
+// Given a trait `MyTrait` with derived dummy implementations in tests
+#[cfg_attr(test, double_trait::dummies)]
+trait MyTrait {
     fn answer(&self) -> i32;
 
     fn some_other_method(&self);
@@ -22,15 +19,16 @@ trait OrgTrait {
 mod tests {
     #[test]
     fn test_function_using_org_trait() {
-        // When implementing Dummy trait for a Stub.
+        // When implementing a Stub for `MyTrait
         struct Stub;
-        impl DummyTrait for Stub {
+        impl MyTrait for Stub {
             fn answer(&self) -> i32 {
                 42
             }
         }
 
-        // Then `Stub` also implements `OrgTrait`.
+        // Then `Stub` also implements `MyTrait`. Despite only implementing one of the methods
+        // explictily.
         assert_eq!(42, OrgTrait::answer(&Stub));
     }
 }

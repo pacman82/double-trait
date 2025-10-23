@@ -11,7 +11,28 @@ use syn::{Error, ItemTrait, parse_macro_input};
 /// * Existing default implementations are respected and not overridden.
 /// * `async` methods are supported
 /// * Methods returning `impl` Traits are not supported, with the exception of `impl Future` and
-///   `impl Iterator`.
+///   `impl Iterator`. One way to deal with this, is to give them an explicit default implementation
+///   in the test case. E.g.,
+///
+///   ```
+///   # trait Answer {}
+///   # struct DummyAnswer;
+///   # impl Answer for DummyAnswer {}
+///
+///   #[cfg_attr(test, double_trait::dummies)]
+///   trait MyTrait {
+///     #[cfg(not(test))]
+///     fn answer(&self) -> impl Answer;
+///
+///     // `dummies` can not interfere a type for `impl Answer`, so we provide a default impl here.
+///     #[cfg(test)]
+///     fn answer(&self) -> impl Answer {
+///         DummyAnswer
+///     }
+///
+///     // ... other methods ...
+///   }
+///   ```
 /// * Dummy implements the trait
 #[proc_macro_attribute]
 pub fn dummies(

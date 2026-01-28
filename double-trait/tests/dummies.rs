@@ -215,3 +215,24 @@ async fn iterator_of_future() {
     // Then
     assert!(values.is_empty())
 }
+
+#[cfg(feature = "stream")]
+#[tokio::test]
+async fn impl_stream_return() {
+    use futures_util::{Stream, StreamExt};
+
+    // Given a trait method which returns an `impl Stream`
+    #[dummies]
+    trait MyTrait {
+        fn answer(&self) -> impl Stream<Item = i32>;
+    }
+
+    struct MyStruct;
+    impl MyTrait for MyStruct {}
+
+    // When invoking the default implementation of `answer`
+    let values: Vec<_> = MyStruct.answer().collect().await;
+
+    // Then the stream is empty
+    assert!(values.is_empty())
+}

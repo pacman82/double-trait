@@ -15,6 +15,12 @@ readme = "../README.md"
 [lib]
 proc-macro = true
 
+[features]
+# All extra type support is disabled by default in order to minimize dependencies
+default = []
+# Enable support for automatically creating dummy implemenations for trait methods which do return `impl Stream`.
+stream = []
+
 [dependencies]
 proc-macro2 = "1.0.106"
 quote = "1.0.44"

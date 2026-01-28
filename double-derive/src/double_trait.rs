@@ -104,6 +104,12 @@ fn type_info(ty: &Type) -> ReturnTypeInfo {
                         item: item.map(|ty| Box::new(type_info(ty))),
                     }
                 }
+                "Stream" => {
+                    let item = assoctiated_type(&first_path_segment.arguments, "Item");
+                    ReturnTypeInfo::ImplStream {
+                        _item: item.map(|ty| Box::new(type_info(ty))),
+                    }
+                }
                 _ => ReturnTypeInfo::UnknownImpl,
             }
         }
@@ -150,10 +156,16 @@ enum ReturnTypeInfo {
     /// Indicates that the return type is an impl Future. We want to know this, so we can wrap
     /// `unimplemented!()` in an async block.
     ImplFuture {
+        /// The associated Output type of the Future
         output: Option<Box<ReturnTypeInfo>>,
     },
     ImplIterator {
+        /// The associated Item type of the Iterator
         item: Option<Box<ReturnTypeInfo>>,
+    },
+    ImplStream {
+        /// The associated Item type of the Stream
+        _item: Option<Box<ReturnTypeInfo>>,
     },
     UnknownImpl,
     Other,
@@ -168,16 +180,17 @@ impl ReturnTypeInfo {
     ) -> Block {
         match self {
             ReturnTypeInfo::ImplFuture { output } => {
-                // Treat missing Output type like other, i.e. use unimplemented!() in the async block
+                // Treat missing Output type like other, i.e. use unimplemented!() in the async
+                // block
                 let output = output.as_deref().unwrap_or(&ReturnTypeInfo::Other);
                 let inner = output.default_impl(fn_item, double_trait_name, fn_name);
-                // If the method returns an impl Future, we provide a default implementation using an
-                // async block, so that the compiler won't complain about not being able to infer the
-                // type of `impl Future`.
+                // If the method returns an impl Future, we provide a default implementation using
+                // an async block, so that the compiler won't complain about not being able to infer
+                // the type of `impl Future`.
                 parse2(quote! {{ async #inner }}).unwrap()
             }
             ReturnTypeInfo::ImplIterator { item } => {
-                // If the method returns an impl Iterator, we provide a default implementation using an
+                // If the method returns an impl Iterator, we provide a default implementation using
                 // an iterator returning no elements.
 
                 let item = item.as_deref().unwrap_or(&ReturnTypeInfo::Other);
@@ -197,6 +210,24 @@ impl ReturnTypeInfo {
                 }})
                 .unwrap()
             }
+            ReturnTypeInfo::ImplStream { _item: _ }=> {
+                
+                if cfg!(feature = "stream") {
+                    parse2(quote! {{
+                        futures_util::stream::empty()
+                    }})
+                    .unwrap()
+                } else {
+                    parse2(quote_spanned! {
+                        fn_item.sig.output.span() => {
+                            compile_error!(
+                                "impl Stream is only supported if the `stream` feature of \
+                                double-trait is activated."
+                            )
+                        }
+                    }).unwrap()
+                }
+            }
             ReturnTypeInfo::Other => {
                 // Otherwise, we provide a default implementation using unimplemented!
                 // We can unwrap here, this body should always compile
@@ -208,16 +239,17 @@ impl ReturnTypeInfo {
                 .unwrap()
             }
             ReturnTypeInfo::Empty => {
-                // If the function does not return anything, we provide an empty default implementation
-                // to avoid using `unimplemented!()`.
+                // If the function does not return anything, we provide an empty default
+                // implementation to avoid using `unimplemented!()`.
                 parse2(quote! { { } }).unwrap()
             }
             ReturnTypeInfo::UnknownImpl => parse2(quote_spanned! {
                 fn_item.sig.output.span() => {
                     compile_error!(
                         "impl Trait is currently not supported by double-trait. Apart from the \
-                        special case of impl Future."
-                )}
+                        special cases of `impl Future` and `impl Stream`."
+                    )
+                }
             })
             .unwrap(),
         }
@@ -441,7 +473,62 @@ mod tests {
                 fn method() -> impl UnsupportedTrait {
                     compile_error!(
                         "impl Trait is currently not supported by double-trait. Apart from the \
-                        special case of impl Future."
+                        special cases of `impl Future` and `impl Stream`."
+                    )
+                }
+            }
+        };
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+
+    #[cfg(feature = "stream")]
+    #[test]
+    fn default_impl_stream_with_stream_feature_activated() {
+        // Given an original trait with a method returning an impl to an unsupported trait
+        let org_trait = given(quote! {
+            trait MyTrait {
+                fn method() -> impl Stream;
+            }
+        });
+
+        // When generating the double trait
+        let double_trait = double_trait(org_trait).unwrap();
+
+        // Then the double trait should have a default implementation which generates a nice compile
+        // error.
+        let actual = quote! { #double_trait };
+        let expected = quote! {
+            trait MyTrait {
+                fn method() -> impl Stream {
+                    futures_util::stream::empty()
+                }
+            }
+        };
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+
+    #[cfg(not(feature = "stream"))]
+    #[test]
+    fn compiler_error_for_impl_stream_with_stream_feature_deactivated() {
+        // Given an original trait with a method returning an impl to an unsupported trait
+        let org_trait = given(quote! {
+            trait MyTrait {
+                fn method() -> impl Stream;
+            }
+        });
+
+        // When generating the double trait
+        let double_trait = double_trait(org_trait).unwrap();
+
+        // Then the double trait should have a default implementation which generates a nice compile
+        // error.
+        let actual = quote! { #double_trait };
+        let expected = quote! {
+            trait MyTrait {
+                fn method() -> impl Stream {
+                    compile_error!(
+                        "impl Stream is only supported if the `stream` feature of \
+                                double-trait is activated."
                     )
                 }
             }

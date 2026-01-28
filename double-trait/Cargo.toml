@@ -1,6 +1,6 @@
 [package]
 name = "double-trait"
-version = "0.2.8"
+version = "0.2.9"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/pacman82/double-trait"
@@ -30,7 +30,7 @@ default = []
 stream = ["dep:futures-util", "double-derive/stream"]
 
 [dependencies]
-double-derive = { version = "0.2.8", path = "../double-derive" }
+double-derive = { version = "0.2.9", path = "../double-derive" }
 futures-util = { version = ">= 0.3, < 0.4", optional = true }
 
 [dev-dependencies]

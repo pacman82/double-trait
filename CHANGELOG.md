@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.9](https://github.com/pacman82/double-trait/compare/v0.2.8...v0.2.9) - 2026-01-28
+
+### Added
+
+- support for impl Stream
+
+### Other
+
+- *(deps)* bump tokio from 1.48.0 to 1.49.0
+- *(deps)* bump quote from 1.0.43 to 1.0.44
+- *(deps)* bump proc-macro2 from 1.0.105 to 1.0.106
+- *(deps)* bump syn from 2.0.113 to 2.0.114
+- *(deps)* bump quote from 1.0.42 to 1.0.43
+- *(deps)* bump proc-macro2 from 1.0.104 to 1.0.105
+- *(deps)* bump syn from 2.0.112 to 2.0.113
+- *(deps)* bump syn from 2.0.111 to 2.0.112
+- *(deps)* bump proc-macro2 from 1.0.103 to 1.0.104
+- *(deps)* bump syn from 2.0.110 to 2.0.111
+- *(deps)* bump syn from 2.0.109 to 2.0.110
+- *(deps)* bump quote from 1.0.41 to 1.0.42
+- *(deps)* bump syn from 2.0.108 to 2.0.109
+- *(deps)* bump proc-macro2 from 1.0.102 to 1.0.103
+- *(deps)* bump proc-macro2 from 1.0.101 to 1.0.102
+- *(deps)* bump syn from 2.0.107 to 2.0.108
+
 ## [0.2.8](https://github.com/pacman82/double-trait/compare/v0.2.7...v0.2.8) - 2025-10-23
 
 ### Added

@@ -3,6 +3,12 @@
 `double-trait` adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.2.10](https://github.com/pacman82/odbc-api/compare/0.2.9...0.2.10) - 2026-06-09
+
+### 🚀 Features
+
+- Default dummy implementations for Results of unit types
+
 
 ## [0.2.9](https://github.com/pacman82/double-trait/compare/v0.2.8...v0.2.9) - 2026-01-28
 

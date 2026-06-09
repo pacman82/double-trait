@@ -63,7 +63,7 @@ mod tests {
     }
 
     #[test]
-    fn empty_default_method() {
+    fn method_with_unit_result_has_empty_default() {
         // Given a trait with a method which returns unit
         let item = given(quote! {
             trait MyTrait {
@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn dummy_default_method() {
+    fn method_with_i32_result_has_unimplemented_default() {
         // Given a trait with a method which returns something (e.g. i32)
         let item = given(quote! {
             trait MyTrait {
@@ -104,6 +104,34 @@ mod tests {
                     let double_trait_name = stringify!(MyTrait);
                     let fn_name = stringify!(foobar);
                     unimplemented!("{double_trait_name}::{fn_name}")
+                }
+            }
+
+            impl MyTrait for double_trait::Dummy {}
+        };
+        assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    #[test]
+    fn method_with_result_unit_result_has_empty_default() {
+        // Given a trait with a method which returns Result<(), ...>
+        let item = given(quote! {
+            trait MyTrait {
+                fn foobar(&self) -> Result<(), Box<dyn Error>>;
+            }
+        });
+
+        // When generating the dummy
+        let output = expand(item).unwrap();
+
+        // Then the generated trait should contain a default implementation doing nothing evaluating
+        // to Ok(())
+        let expected = quote! {
+            trait MyTrait {
+                fn foobar(&self) -> Result<(), Box<dyn Error> > {
+                    let inner = {};
+                    #[allow(unreachable_code)]
+                    Ok(inner)
                 }
             }
 

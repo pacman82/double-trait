@@ -120,6 +120,23 @@ fn type_info(ty: &Type) -> ReturnTypeInfo {
                 ReturnTypeInfo::Other
             }
         }
+        Type::Path(ref type_path) => {
+            let Some(last) = type_path.path.segments.last() else {
+                return ReturnTypeInfo::Other;
+            };
+            let PathArguments::AngleBracketed(ref generic_arguments) = last.arguments else {
+                return ReturnTypeInfo::Other;
+            };
+            let Some(generic_argument) = generic_arguments.args.first() else {
+                return ReturnTypeInfo::Other;
+            };
+            let GenericArgument::Type(ok) = generic_argument else {
+                return ReturnTypeInfo::Other;
+            };
+            ReturnTypeInfo::Result {
+                ok: Box::new(type_info(ok)),
+            }
+        }
         _ => ReturnTypeInfo::Other,
     }
 }
@@ -167,6 +184,10 @@ enum ReturnTypeInfo {
         /// The associated Item type of the Stream
         _item: Option<Box<ReturnTypeInfo>>,
     },
+    Result {
+        // The `Ok` type of the Result
+        ok: Box<ReturnTypeInfo>,
+    },
     UnknownImpl,
     Other,
 }
@@ -210,8 +231,7 @@ impl ReturnTypeInfo {
                 }})
                 .unwrap()
             }
-            ReturnTypeInfo::ImplStream { _item: _ }=> {
-                
+            ReturnTypeInfo::ImplStream { _item: _ } => {
                 if cfg!(feature = "stream") {
                     parse2(quote! {{
                         futures_util::stream::empty()
@@ -225,7 +245,8 @@ impl ReturnTypeInfo {
                                 double-trait is activated."
                             )
                         }
-                    }).unwrap()
+                    })
+                    .unwrap()
                 }
             }
             ReturnTypeInfo::Other => {
@@ -242,6 +263,21 @@ impl ReturnTypeInfo {
                 // If the function does not return anything, we provide an empty default
                 // implementation to avoid using `unimplemented!()`.
                 parse2(quote! { { } }).unwrap()
+            }
+            ReturnTypeInfo::Result { ok } => {
+                // If the method returns a Result, we provide a default implementation as if it were
+                // infalliable, wrapped in `Ok`.
+
+                let inner = ok.default_impl(fn_item, double_trait_name, fn_name);
+
+                // We are constructing an empty interator, but we still want to be able to infer an
+                // element type from `#inner` if possible.
+                parse2(quote! {{
+                    let inner = #inner;
+                    #[allow(unreachable_code)]
+                    Ok(inner)
+                }})
+                .unwrap()
             }
             ReturnTypeInfo::UnknownImpl => parse2(quote_spanned! {
                 fn_item.sig.output.span() => {

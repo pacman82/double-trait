@@ -1,6 +1,8 @@
 // We are more interested that the code compiles and  not so much in the actual functionality.
 #![allow(dead_code)]
 
+use std::error::Error;
+
 use double_trait::{Dummy, dummies};
 
 #[test]
@@ -214,6 +216,21 @@ async fn iterator_of_future() {
 
     // Then
     assert!(values.is_empty())
+}
+
+#[tokio::test]
+async fn future_of_result() {
+    // Given an original trait with a method `answer`
+    #[dummies]
+    trait MyTrait {
+        fn do_something(&self) -> impl Future<Output = Result<(), Box<dyn Error>>>;
+    }
+
+    // When invoking the default implementation of `answer`
+    let result = Dummy.do_something().await;
+
+    // Then
+    assert!(result.is_ok())
 }
 
 #[cfg(feature = "stream")]

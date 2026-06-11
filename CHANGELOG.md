@@ -3,6 +3,12 @@
 `double-trait` adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.2.11](https://github.com/pacman82/odbc-api/compare/0.2.10...0.2.11) - 2026-06-11
+
+### 🐛 Bug Fixes
+
+- Fix a regression there any generic type like e.g. Vec has been
+
 ## [0.2.10](https://github.com/pacman82/odbc-api/compare/0.2.9...0.2.10) - 2026-06-09
 
 ### 🚀 Features

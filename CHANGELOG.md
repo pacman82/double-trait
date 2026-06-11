@@ -7,7 +7,7 @@
 
 ### 🐛 Bug Fixes
 
-- Fix a regression there any generic type like e.g. Vec has been
+- Fix a regression there any generic type like e.g. Vec has been treated like a result in terms of generating a default implementation. Now only types whose path ends in "Result" and have at least one generic argument are generating a default implementation function using Ok(...)
 
 ## [0.2.10](https://github.com/pacman82/odbc-api/compare/0.2.9...0.2.10) - 2026-06-09
 

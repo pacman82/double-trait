@@ -141,6 +141,38 @@ mod tests {
     }
 
     #[test]
+    fn method_returning_result_vec() {
+        // Given a trait with a method which returns Result<(), ...>
+        let item = given(quote! {
+            trait MyTrait {
+                fn foobar(&self) -> Result<Vec<i32>, Box<dyn Error>>;
+            }
+        });
+
+        // When generating the dummy
+        let output = expand(item).unwrap();
+
+        // Then the generated trait should contain a default implementation doing nothing evaluating
+        // to Ok(())
+        let expected = quote! {
+            trait MyTrait {
+                fn foobar(&self) -> Result<Vec<i32>, Box<dyn Error> > {
+                    let inner = {
+                        let double_trait_name = stringify!(MyTrait);
+                        let fn_name = stringify!(foobar);
+                        unimplemented!("{double_trait_name}::{fn_name}")
+                    };
+                    #[allow(unreachable_code)]
+                    Ok(inner)
+                }
+            }
+
+            impl MyTrait for double_trait::Dummy {}
+        };
+        assert_eq!(expected.to_string(), output.to_string());
+    }
+
+    #[test]
     fn respect_existing_default_impl() {
         // Given a method with a default implementation in the original trait
         let item = given(quote! {

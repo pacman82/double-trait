@@ -124,6 +124,9 @@ fn type_info(ty: &Type) -> ReturnTypeInfo {
             let Some(last) = type_path.path.segments.last() else {
                 return ReturnTypeInfo::Other;
             };
+            if last.ident.to_string() != "Result" {
+                return ReturnTypeInfo::Other;
+            }
             let PathArguments::AngleBracketed(ref generic_arguments) = last.arguments else {
                 return ReturnTypeInfo::Other;
             };
@@ -165,7 +168,7 @@ fn assoctiated_type<'a>(
         .map(|at| &at.ty)
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum ReturnTypeInfo {
     /// If the function does not return, we want the default implementation to be empty, rather than
     /// using `unimplemented!()`.
@@ -320,6 +323,81 @@ mod tests {
             panic!("Expected ReturnTypeInfo::ImplFuture with Some output");
         };
         assert!(matches!(*output, ReturnTypeInfo::Other));
+    }
+
+    #[test]
+    fn return_type_info_result_unit() {
+        let rt: ReturnType = parse2(quote! {-> Result<(), MyError> }).unwrap();
+        let ReturnTypeInfo::Result { ok } = return_type_info(&rt) else {
+            panic!("Expected ReturnTypeInfo::Result");
+        };
+        assert!(matches!(*ok, ReturnTypeInfo::Empty));
+    }
+
+    #[test]
+    fn return_type_info_result_vec() {
+        let rt: ReturnType = parse2(quote! {-> Result<Vec<i32>, MyError> }).unwrap();
+        let rti = return_type_info(&rt);
+        let expected = ReturnTypeInfo::Result {
+            ok: Box::new(ReturnTypeInfo::Other),
+        };
+        assert_eq!(expected, rti);
+    }
+
+    #[test]
+    fn default_impl_for_method_returning_result_unit() {
+        // Given
+        let org_trait = given(quote! {
+            trait MyTrait {
+                fn method(&self) -> Result<(), MyError>;
+            }
+        });
+
+        // When
+        let double_trait = double_trait(org_trait).unwrap();
+
+        // Then
+        let actual = quote! { #double_trait };
+        let expected = quote! {
+            trait MyTrait {
+                fn method(&self) -> Result<(), MyError> {
+                    let inner = {};
+                    # [allow (unreachable_code)]
+                    Ok(inner)
+                }
+            }
+        };
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn default_impl_for_method_returning_result_any_type() {
+        // Given
+        let org_trait = given(quote! {
+            trait MyTrait {
+                fn method(&self) -> Result<MyOk, MyError>;
+            }
+        });
+
+        // When
+        let double_trait = double_trait(org_trait).unwrap();
+
+        // Then
+        let actual = quote! { #double_trait };
+        let expected = quote! {
+            trait MyTrait {
+                fn method(&self) -> Result<MyOk, MyError> {
+                    let inner = {
+                        let double_trait_name = stringify!(MyTrait);
+                        let fn_name = stringify!(method);
+                        unimplemented ! ("{double_trait_name}::{fn_name}")
+                    };
+                    # [allow (unreachable_code)]
+                    Ok(inner)
+                }
+            }
+        };
+        assert_eq!(actual.to_string(), expected.to_string());
     }
 
     #[test]

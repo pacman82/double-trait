@@ -233,6 +233,19 @@ async fn future_of_result() {
     assert!(result.is_ok())
 }
 
+#[tokio::test]
+#[should_panic(expected = "not implemented: MyTrait::answer")]
+async fn future_of_result_vec_i32() {
+    // Given an original trait with a method `answer`
+    #[dummies]
+    trait MyTrait {
+        fn answer(&self) -> impl Future<Output = Result<Vec<i32>, Box<dyn Error>>>;
+    }
+
+    // When invoking the default implementation of `answer`
+    let _result = Dummy.answer().await;
+}
+
 #[cfg(feature = "stream")]
 #[tokio::test]
 async fn impl_stream_return() {

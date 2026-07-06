@@ -8,6 +8,7 @@ pub use double_derive::dummies;
 /// [`dummies`] the implementation is:
 ///
 /// ```no_run
+/// # use double_trait::Dummy;
 /// # trait MyTrait {}
 /// impl MyTrait for Dummy {}
 /// ```

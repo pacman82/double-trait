@@ -4,15 +4,17 @@ mod dummy_impl;
 
 use syn::{Error, ItemTrait, parse_macro_input};
 
-/// Generates a "dummy" implementation for each method in a trait using `unimplemented!()`. The main
-/// use case is to greate specialized test doubles for implementing the trait without worrying the
-/// need to explicitly implement methods, which are not invoked by the test.
+/// Generates a "dummy" implementation for each method in a trait and implements the trait for `Dummy`.
 ///
+/// This eases implementing test doubles in cases there the test does not require all the methods of
+/// a trait. The compiler is happy as there is a default implementation and you can focus on
+/// overwriting the behavior which is of interest to your test.
+///
+/// * Most default implementations will call `unimplemented!`.
 /// * Existing default implementations are respected and not overridden.
-/// * `async` methods are supported
-/// * Methods returning `impl` Traits are not supported, with the exception of `impl Future` and
-///   `impl Iterator`. One way to deal with this, is to give them an explicit default implementation
-///   in the test case. E.g.,
+/// * Methods returning `impl` Trait will not work unless they are specifically supproted by this
+///   crate. One way to deal with this, is to give them an explicit default implementation in the
+///   test case. E.g.,
 ///
 ///   ```
 ///   # trait Answer {}
@@ -33,7 +35,13 @@ use syn::{Error, ItemTrait, parse_macro_input};
 ///     // ... other methods ...
 ///   }
 ///   ```
-/// * Dummy implements the trait
+/// * Async methods and methods returning `impl Future` are supported.
+/// * Methods returning `impl Iterator` are supported and will return an empty iterator.
+/// * Methods returning `impl Stream` are supported if the `stream` feature is activated and will
+///   return an empty Stream.
+/// * Methods returning `Result`, will use the default behavior of the `Ok` type and wrap it in
+///   `Ok`.
+///
 #[proc_macro_attribute]
 pub fn dummies(
     _attr: proc_macro::TokenStream,

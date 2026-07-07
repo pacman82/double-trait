@@ -1,8 +1,10 @@
-use quote::{quote, quote_spanned};
+mod default_body;
+
+use self::default_body::default_body_strategy;
+
 use syn::{
-    AngleBracketedGenericArguments, Block, FnArg, GenericArgument, Ident, ItemTrait, Pat, PatWild,
-    PathArguments, ReturnType, Token, TraitItem, TraitItemFn, Type, TypeParamBound, parse2,
-    punctuated::Punctuated, spanned::Spanned, token::Comma,
+    FnArg, Ident, ItemTrait, Pat, PatWild, Token, TraitItem, TraitItemFn, punctuated::Punctuated,
+    spanned::Spanned, token::Comma,
 };
 
 /// Generate a double trait which mirrors the original trait's methods and provides default
@@ -41,10 +43,10 @@ fn transform_function(
     // our default implementation is not making use of any arguments.
     strip_parameter_names(&mut fn_item.sig.inputs);
 
-    let return_type_info = return_type_info(&fn_item.sig.output);
+    let return_type_info = default_body_strategy(&fn_item.sig.output);
     let fn_name = fn_item.sig.ident.clone();
 
-    let default_impl = return_type_info.default_impl(&fn_item, double_trait_name, fn_name);
+    let default_impl = return_type_info.default_body(&fn_item, double_trait_name, fn_name);
 
     fn_item.default = Some(default_impl);
 
@@ -63,286 +65,11 @@ fn strip_parameter_names(input: &mut Punctuated<FnArg, Comma>) {
     }
 }
 
-fn return_type_info(output: &ReturnType) -> ReturnTypeInfo {
-    if let ReturnType::Type(_rarrow, ty) = output {
-        type_info(ty)
-    } else {
-        ReturnTypeInfo::Empty
-    }
-}
-
-fn type_info(ty: &Type) -> ReturnTypeInfo {
-    match *ty {
-        Type::ImplTrait(ref impl_trait) => {
-            let mut trait_bounds = impl_trait.bounds.iter().filter_map(|b| match b {
-                TypeParamBound::Trait(trait_bound) => Some(trait_bound),
-                TypeParamBound::Lifetime(_)
-                | TypeParamBound::PreciseCapture(_)
-                | TypeParamBound::Verbatim(_)
-                | _ => None,
-            });
-            let first_trait_bound = trait_bounds
-                .next()
-                .expect("At least one trait bound expected in impl trait.");
-            let first_path_segment = first_trait_bound
-                .path
-                .segments
-                .first()
-                .expect("There must be at least one path segment in trait bound");
-            let identifier = &first_path_segment.ident.to_string();
-            match identifier.as_str() {
-                "Future" => {
-                    let output = assoctiated_type(&first_path_segment.arguments, "Output");
-                    // If the first trait bound is Future, we assume that this is an impl Future.
-                    ReturnTypeInfo::ImplFuture {
-                        output: output.map(|ty| Box::new(type_info(ty))),
-                    }
-                }
-                "Iterator" => {
-                    let item = assoctiated_type(&first_path_segment.arguments, "Item");
-                    ReturnTypeInfo::ImplIterator {
-                        item: item.map(|ty| Box::new(type_info(ty))),
-                    }
-                }
-                "Stream" => {
-                    let item = assoctiated_type(&first_path_segment.arguments, "Item");
-                    ReturnTypeInfo::ImplStream {
-                        _item: item.map(|ty| Box::new(type_info(ty))),
-                    }
-                }
-                _ => ReturnTypeInfo::UnknownImpl,
-            }
-        }
-        Type::Tuple(ref tuple_type) => {
-            if tuple_type.elems.is_empty() {
-                ReturnTypeInfo::Empty
-            } else {
-                ReturnTypeInfo::Other
-            }
-        }
-        Type::Path(ref type_path) => {
-            let Some(last) = type_path.path.segments.last() else {
-                return ReturnTypeInfo::Other;
-            };
-            if last.ident.to_string() != "Result" {
-                return ReturnTypeInfo::Other;
-            }
-            let PathArguments::AngleBracketed(ref generic_arguments) = last.arguments else {
-                return ReturnTypeInfo::Other;
-            };
-            let Some(generic_argument) = generic_arguments.args.first() else {
-                return ReturnTypeInfo::Other;
-            };
-            let GenericArgument::Type(ok) = generic_argument else {
-                return ReturnTypeInfo::Other;
-            };
-            ReturnTypeInfo::Result {
-                ok: Box::new(type_info(ok)),
-            }
-        }
-        _ => ReturnTypeInfo::Other,
-    }
-}
-
-/// Find the associated output type of an impl Future trait. E.g. the `i64` in impl Future<Output=i64>.
-fn assoctiated_type<'a>(
-    future_trait_args: &'a PathArguments,
-    associated: &str,
-) -> Option<&'a Type> {
-    let PathArguments::AngleBracketed(AngleBracketedGenericArguments { args, .. }) =
-        future_trait_args
-    else {
-        return None;
-    };
-    args.iter()
-        // Only look at associated types
-        .filter_map(|arg| {
-            let GenericArgument::AssocType(at) = arg else {
-                return None;
-            };
-            Some(at)
-        })
-        // Find the associated type
-        .find(|at| at.ident == associated)
-        // Return the type of the associated type
-        .map(|at| &at.ty)
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum ReturnTypeInfo {
-    /// If the function does not return, we want the default implementation to be empty, rather than
-    /// using `unimplemented!()`.
-    Empty,
-    /// Indicates that the return type is an impl Future. We want to know this, so we can wrap
-    /// `unimplemented!()` in an async block.
-    ImplFuture {
-        /// The associated Output type of the Future
-        output: Option<Box<ReturnTypeInfo>>,
-    },
-    ImplIterator {
-        /// The associated Item type of the Iterator
-        item: Option<Box<ReturnTypeInfo>>,
-    },
-    ImplStream {
-        /// The associated Item type of the Stream
-        _item: Option<Box<ReturnTypeInfo>>,
-    },
-    Result {
-        // The `Ok` type of the Result
-        ok: Box<ReturnTypeInfo>,
-    },
-    UnknownImpl,
-    Other,
-}
-
-impl ReturnTypeInfo {
-    fn default_impl(
-        &self,
-        fn_item: &TraitItemFn,
-        double_trait_name: Ident,
-        fn_name: Ident,
-    ) -> Block {
-        match self {
-            ReturnTypeInfo::ImplFuture { output } => {
-                // Treat missing Output type like other, i.e. use unimplemented!() in the async
-                // block
-                let output = output.as_deref().unwrap_or(&ReturnTypeInfo::Other);
-                let inner = output.default_impl(fn_item, double_trait_name, fn_name);
-                // If the method returns an impl Future, we provide a default implementation using
-                // an async block, so that the compiler won't complain about not being able to infer
-                // the type of `impl Future`.
-                parse2(quote! {{ async #inner }}).unwrap()
-            }
-            ReturnTypeInfo::ImplIterator { item } => {
-                // If the method returns an impl Iterator, we provide a default implementation using
-                // an iterator returning no elements.
-
-                let item = item.as_deref().unwrap_or(&ReturnTypeInfo::Other);
-                let inner = item.default_impl(fn_item, double_trait_name, fn_name);
-
-                // We are constructing an empty interator, but we still want to be able to infer an
-                // element type from `#inner` if possible.
-                parse2(quote! {{
-                    #[allow(unreachable_code)]
-                    std::iter::from_fn(move || {
-                        if false {
-                            Some(#inner)
-                        } else {
-                            None
-                        }
-                    })
-                }})
-                .unwrap()
-            }
-            ReturnTypeInfo::ImplStream { _item: _ } => {
-                if cfg!(feature = "stream") {
-                    parse2(quote! {{
-                        futures_util::stream::empty()
-                    }})
-                    .unwrap()
-                } else {
-                    parse2(quote_spanned! {
-                        fn_item.sig.output.span() => {
-                            compile_error!(
-                                "impl Stream is only supported if the `stream` feature of \
-                                double-trait is activated."
-                            )
-                        }
-                    })
-                    .unwrap()
-                }
-            }
-            ReturnTypeInfo::Other => {
-                // Otherwise, we provide a default implementation using unimplemented!
-                // We can unwrap here, this body should always compile
-                parse2(quote! {{
-                    let double_trait_name = stringify!(#double_trait_name);
-                    let fn_name = stringify!(#fn_name);
-                    unimplemented!("{double_trait_name}::{fn_name}")
-                }})
-                .unwrap()
-            }
-            ReturnTypeInfo::Empty => {
-                // If the function does not return anything, we provide an empty default
-                // implementation to avoid using `unimplemented!()`.
-                parse2(quote! { { } }).unwrap()
-            }
-            ReturnTypeInfo::Result { ok } => {
-                // If the method returns a Result, we provide a default implementation as if it were
-                // infalliable, wrapped in `Ok`.
-
-                let inner = ok.default_impl(fn_item, double_trait_name, fn_name);
-
-                // We are constructing an empty interator, but we still want to be able to infer an
-                // element type from `#inner` if possible.
-                parse2(quote! {{
-                    let inner = #inner;
-                    #[allow(unreachable_code)]
-                    Ok(inner)
-                }})
-                .unwrap()
-            }
-            ReturnTypeInfo::UnknownImpl => parse2(quote_spanned! {
-                fn_item.sig.output.span() => {
-                    compile_error!(
-                        "impl Trait is currently not supported by double-trait. Apart from the \
-                        special cases of `impl Future` and `impl Stream`."
-                    )
-                }
-            })
-            .unwrap(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{ReturnTypeInfo, double_trait, return_type_info};
+    use super::double_trait;
     use quote::quote;
-    use syn::{ItemTrait, ReturnType, parse2};
-
-    #[test]
-    fn return_type_info_unit() {
-        let rt: ReturnType = parse2(quote! {-> () }).unwrap();
-        assert!(matches!(return_type_info(&rt), ReturnTypeInfo::Empty));
-    }
-
-    #[test]
-    fn return_type_info_i34() {
-        let rt: ReturnType = parse2(quote! {-> i32 }).unwrap();
-        assert!(matches!(return_type_info(&rt), ReturnTypeInfo::Other));
-    }
-
-    #[test]
-    fn return_type_info_impl_future_i32() {
-        let rt: ReturnType = parse2(quote! {-> impl Future<Output = i32> }).unwrap();
-        let ReturnTypeInfo::ImplFuture {
-            output: Some(output),
-        } = return_type_info(&rt)
-        else {
-            panic!("Expected ReturnTypeInfo::ImplFuture with Some output");
-        };
-        assert!(matches!(*output, ReturnTypeInfo::Other));
-    }
-
-    #[test]
-    fn return_type_info_result_unit() {
-        let rt: ReturnType = parse2(quote! {-> Result<(), MyError> }).unwrap();
-        let ReturnTypeInfo::Result { ok } = return_type_info(&rt) else {
-            panic!("Expected ReturnTypeInfo::Result");
-        };
-        assert!(matches!(*ok, ReturnTypeInfo::Empty));
-    }
-
-    #[test]
-    fn return_type_info_result_vec() {
-        let rt: ReturnType = parse2(quote! {-> Result<Vec<i32>, MyError> }).unwrap();
-        let rti = return_type_info(&rt);
-        let expected = ReturnTypeInfo::Result {
-            ok: Box::new(ReturnTypeInfo::Other),
-        };
-        assert_eq!(expected, rti);
-    }
+    use syn::{ItemTrait, parse2};
 
     #[test]
     fn default_impl_for_method_returning_result_unit() {
@@ -398,34 +125,6 @@ mod tests {
             }
         };
         assert_eq!(actual.to_string(), expected.to_string());
-    }
-
-    #[test]
-    fn return_type_info_impl_future_unit() {
-        let rt: ReturnType = parse2(quote! {-> impl Future<Output = ()> }).unwrap();
-        let ReturnTypeInfo::ImplFuture {
-            output: Some(output),
-        } = return_type_info(&rt)
-        else {
-            panic!("Expected ReturnTypeInfo::ImplFuture with Some output");
-        };
-        assert!(matches!(*output, ReturnTypeInfo::Empty));
-    }
-
-    #[test]
-    fn return_type_info_impl_future_impl_iterator_i32() {
-        let rt: ReturnType =
-            parse2(quote! {-> impl Future<Output = impl Iterator<Item=i32>> }).unwrap();
-        let ReturnTypeInfo::ImplFuture {
-            output: Some(output),
-        } = return_type_info(&rt)
-        else {
-            panic!("Expected ReturnTypeInfo::ImplFuture with Some output");
-        };
-        assert!(matches!(
-            *output,
-            ReturnTypeInfo::ImplIterator { item: Some(_) }
-        ));
     }
 
     #[test]

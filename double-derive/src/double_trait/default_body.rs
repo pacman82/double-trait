@@ -29,6 +29,7 @@ pub enum DefaultBodyStrategy {
         // The `Ok` type of the Result
         ok: Box<DefaultBodyStrategy>,
     },
+    Option,
     UnknownImpl,
     Other,
 }
@@ -90,7 +91,7 @@ impl DefaultBodyStrategy {
                     .unwrap()
                 }
             }
-            DefaultBodyStrategy::Other => {
+            DefaultBodyStrategy::Other | DefaultBodyStrategy::Option => {
                 // Otherwise, we provide a default implementation using unimplemented!
                 // We can unwrap here, this body should always compile
                 parse2(quote! {{
@@ -194,6 +195,9 @@ fn type_info(ty: &Type) -> DefaultBodyStrategy {
             let Some(last) = type_path.path.segments.last() else {
                 return DefaultBodyStrategy::Other;
             };
+            if last.ident.to_string() == "Option" {
+                return DefaultBodyStrategy::Option;
+            }
             if last.ident.to_string() != "Result" {
                 return DefaultBodyStrategy::Other;
             }
@@ -254,11 +258,20 @@ mod tests {
     }
 
     #[test]
-    fn return_type_info_i34() {
+    fn return_type_info_i32() {
         let rt: ReturnType = parse2(quote! {-> i32 }).unwrap();
         assert!(matches!(
             default_body_strategy(&rt),
             DefaultBodyStrategy::Other
+        ));
+    }
+
+    #[test]
+    fn return_type_info_option_i32() {
+        let rt: ReturnType = parse2(quote! {-> Option<i32> }).unwrap();
+        assert!(matches!(
+            default_body_strategy(&rt),
+            DefaultBodyStrategy::Option
         ));
     }
 

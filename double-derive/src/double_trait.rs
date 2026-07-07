@@ -240,6 +240,30 @@ mod tests {
     }
 
     #[test]
+    fn empty_default_implementation_if_function_returns_option() {
+        // Given
+        let org_trait = given(quote! {
+            trait MyTrait {
+                fn method() -> Option<i32>;
+            }
+        });
+
+        // When
+        let double_trait = double_trait(org_trait).unwrap();
+
+        // Then
+        let actual = quote! { #double_trait };
+        let expected = quote! {
+            trait MyTrait {
+                fn method() -> Option<i32> {
+                    None
+                }
+            }
+        };
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+
+    #[test]
     fn default_implementation_for_function_with_i32_result() {
         // Given an original trait with a method returning an i32
         let org_trait = given(quote! {

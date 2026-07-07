@@ -41,6 +41,7 @@ use syn::{Error, ItemTrait, parse_macro_input};
 ///   return an empty Stream.
 /// * Methods returning `Result`, will use the default behavior of the `Ok` type and wrap it in
 ///   `Ok`.
+/// * Methods returning `Option` will return `None`.
 ///
 #[proc_macro_attribute]
 pub fn dummies(

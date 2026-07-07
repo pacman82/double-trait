@@ -91,7 +91,7 @@ impl DefaultBodyStrategy {
                     .unwrap()
                 }
             }
-            DefaultBodyStrategy::Other | DefaultBodyStrategy::Option => {
+            DefaultBodyStrategy::Other => {
                 // Otherwise, we provide a default implementation using unimplemented!
                 // We can unwrap here, this body should always compile
                 parse2(quote! {{
@@ -105,6 +105,11 @@ impl DefaultBodyStrategy {
                 // If the function does not return anything, we provide an empty default
                 // implementation to avoid using `unimplemented!()`.
                 parse2(quote! { { } }).unwrap()
+            }
+            DefaultBodyStrategy::Option => {
+                // If the function does not return anything, we provide an empty default
+                // implementation to avoid using `unimplemented!()`.
+                parse2(quote! { { None } }).unwrap()
             }
             DefaultBodyStrategy::Result { ok } => {
                 // If the method returns a Result, we provide a default implementation as if it were

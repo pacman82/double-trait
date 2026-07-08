@@ -12,9 +12,9 @@
 
 ### 📚 Documentation
 
-- Doc comment explains how Dummy works
-- Document behavior for associated types
-- Specify default implementation created by `dummies` in greater
+- Doc comment on `dummies` macro explains behavior for associated types
+- Doc comment on `dummies` macro explains behavior for impl traits
+- Doc comment on `dummies` mentions defaults for `Option`, `Result` and `()`. 
 
 ## [0.2.11](https://github.com/pacman82/odbc-api/compare/0.2.10...0.2.11) - 2026-06-11
 

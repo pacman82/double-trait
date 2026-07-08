@@ -35,7 +35,10 @@ use syn::{Error, ItemTrait, parse_macro_input};
 ///     // ... other methods ...
 ///   }
 ///   ```
-/// * Async methods and methods returning `impl Future` are supported.
+///
+/// * Associated types are implemented using `Dummy`.
+/// * Async methods and methods returning `impl Future` are supported and inherit the default from
+///   their sync counterparts.
 /// * Methods returning `impl Iterator` are supported and will return an empty iterator.
 /// * Methods returning `impl Stream` are supported if the `stream` feature is activated and will
 ///   return an empty Stream.

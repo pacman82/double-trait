@@ -3,6 +3,19 @@
 `double-trait` adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [0.2.12](https://github.com/pacman82/odbc-api/compare/0.2.11...0.2.12) - 2026-07-08
+
+### 🚀 Features
+
+- Default Body is now `{ None }` for methods returning `Option`
+
+
+### 📚 Documentation
+
+- Doc comment explains how Dummy works
+- Document behavior for associated types
+- Specify default implementation created by `dummies` in greater
+
 ## [0.2.11](https://github.com/pacman82/odbc-api/compare/0.2.10...0.2.11) - 2026-06-11
 
 ### 🐛 Bug Fixes

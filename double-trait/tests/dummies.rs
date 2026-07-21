@@ -234,7 +234,6 @@ async fn future_of_result() {
 }
 
 #[tokio::test]
-#[should_panic(expected = "not implemented: MyTrait::answer")]
 async fn future_of_result_vec_i32() {
     // Given an original trait with a method `answer`
     #[dummies]
@@ -243,7 +242,12 @@ async fn future_of_result_vec_i32() {
     }
 
     // When invoking the default implementation of `answer`
-    let _result = Dummy.answer().await;
+    let result = Dummy.answer().await;
+
+    // Then
+    assert!(result.is_ok());
+    let vec = result.unwrap();
+    assert!(vec.is_empty());
 }
 
 #[cfg(feature = "stream")]

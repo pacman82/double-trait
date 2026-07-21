@@ -240,7 +240,7 @@ mod tests {
     }
 
     #[test]
-    fn empty_default_implementation_if_function_returns_option() {
+    fn none_default_for_option() {
         // Given
         let org_trait = given(quote! {
             trait MyTrait {
@@ -257,6 +257,30 @@ mod tests {
             trait MyTrait {
                 fn method() -> Option<i32> {
                     None
+                }
+            }
+        };
+        assert_eq!(actual.to_string(), expected.to_string());
+    }
+
+    #[test]
+    fn empty_default_for_vec() {
+        // Given
+        let org_trait = given(quote! {
+            trait MyTrait {
+                fn method() -> Vec<i32>;
+            }
+        });
+
+        // When
+        let double_trait = double_trait(org_trait).unwrap();
+
+        // Then
+        let actual = quote! { #double_trait };
+        let expected = quote! {
+            trait MyTrait {
+                fn method() -> Vec<i32> {
+                    Vec::new()
                 }
             }
         };

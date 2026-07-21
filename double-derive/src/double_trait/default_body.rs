@@ -30,6 +30,7 @@ pub enum DefaultBodyStrategy {
         ok: Box<DefaultBodyStrategy>,
     },
     Option,
+    Vec,
     UnknownImpl,
     Other,
 }
@@ -101,16 +102,9 @@ impl DefaultBodyStrategy {
                 }})
                 .unwrap()
             }
-            DefaultBodyStrategy::Empty => {
-                // If the function does not return anything, we provide an empty default
-                // implementation to avoid using `unimplemented!()`.
-                parse2(quote! { { } }).unwrap()
-            }
-            DefaultBodyStrategy::Option => {
-                // If the function does not return anything, we provide an empty default
-                // implementation to avoid using `unimplemented!()`.
-                parse2(quote! { { None } }).unwrap()
-            }
+            DefaultBodyStrategy::Empty => parse2(quote! { { } }).unwrap(),
+            DefaultBodyStrategy::Vec => parse2(quote! { { Vec::new() } }).unwrap(),
+            DefaultBodyStrategy::Option => parse2(quote! { { None } }).unwrap(),
             DefaultBodyStrategy::Result { ok } => {
                 // If the method returns a Result, we provide a default implementation as if it were
                 // infalliable, wrapped in `Ok`.
@@ -203,6 +197,9 @@ fn type_info(ty: &Type) -> DefaultBodyStrategy {
             if last.ident.to_string() == "Option" {
                 return DefaultBodyStrategy::Option;
             }
+            if last.ident.to_string() == "Vec" {
+                return DefaultBodyStrategy::Vec;
+            }
             if last.ident.to_string() != "Result" {
                 return DefaultBodyStrategy::Other;
             }
@@ -281,6 +278,15 @@ mod tests {
     }
 
     #[test]
+    fn return_type_info_vec_i32() {
+        let rt: ReturnType = parse2(quote! {-> Vec<i32> }).unwrap();
+        assert!(matches!(
+            default_body_strategy(&rt),
+            DefaultBodyStrategy::Vec
+        ));
+    }
+
+    #[test]
     fn return_type_info_impl_future_i32() {
         let rt: ReturnType = parse2(quote! {-> impl Future<Output = i32> }).unwrap();
         let DefaultBodyStrategy::ImplFuture {
@@ -306,7 +312,7 @@ mod tests {
         let rt: ReturnType = parse2(quote! {-> Result<Vec<i32>, MyError> }).unwrap();
         let rti = default_body_strategy(&rt);
         let expected = DefaultBodyStrategy::Result {
-            ok: Box::new(DefaultBodyStrategy::Other),
+            ok: Box::new(DefaultBodyStrategy::Vec),
         };
         assert_eq!(expected, rti);
     }

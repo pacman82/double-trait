@@ -45,6 +45,7 @@ use syn::{Error, ItemTrait, parse_macro_input};
 /// * Methods returning `Result`, will use the default behavior of the `Ok` type and wrap it in
 ///   `Ok`.
 /// * Methods returning `Option` will return `None`.
+/// * Methods returning `Vec` will return `Vec::new`.
 ///
 #[proc_macro_attribute]
 pub fn dummies(

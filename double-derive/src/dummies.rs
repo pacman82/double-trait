@@ -157,11 +157,7 @@ mod tests {
         let expected = quote! {
             trait MyTrait {
                 fn foobar(&self) -> Result<Vec<i32>, Box<dyn Error> > {
-                    let inner = {
-                        let double_trait_name = stringify!(MyTrait);
-                        let fn_name = stringify!(foobar);
-                        unimplemented!("{double_trait_name}::{fn_name}")
-                    };
+                    let inner = { Vec::new() };
                     #[allow(unreachable_code)]
                     Ok(inner)
                 }

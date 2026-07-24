@@ -34,5 +34,5 @@ double-derive = { version = "0.2.13", path = "../double-derive" }
 futures-util = { version = ">= 0.3, < 0.4", optional = true }
 
 [dev-dependencies]
-async-trait = "0.1.89"
-tokio = { version = "1.52.3", features = ["rt", "macros"] }
+async-trait = "0.1.91"
+tokio = { version = "1.53.1", features = ["rt", "macros"] }

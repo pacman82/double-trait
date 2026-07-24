@@ -1,7 +1,8 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    Ident, ImplItem, ImplItemType, ItemTrait, Token, TraitItem, Visibility, spanned::Spanned,
+    Ident, ImplItem, ImplItemType, ItemTrait, Token, TraitItem, TypeModifiers, Visibility,
+    spanned::Spanned,
 };
 
 /// Implemntation of double trait for `Dummy` type.
@@ -22,13 +23,13 @@ fn transform_trait_item(item: TraitItem) -> Option<ImplItem> {
         let impl_item = ImplItemType {
             attrs: ty_item.attrs,
             vis: Visibility::Inherited,
-            defaultness: None,
             type_token: ty_item.type_token,
             ident: ty_item.ident,
             generics: ty_item.generics,
             eq_token: Token![=](span),
             ty: syn::parse_quote! { double_trait::Dummy },
             semi_token: Token![;](span),
+            modifiers: TypeModifiers::default(),
         };
         Some(ImplItem::Type(impl_item))
     } else {
